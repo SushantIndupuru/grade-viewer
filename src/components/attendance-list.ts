@@ -10,8 +10,9 @@ import {
 	getSession,
 	postAttendance,
 	refreshSession,
+	sendToLogin,
 } from "../lib/session";
-import { errorHtml, fillCourseNav, isSessionExpired, loadingHtml, SessionExpiredError, spinnerHtml } from "./grades-list";
+import { errorHtml, fillCourseNav, isSessionExpired, loadingHtml, spinnerHtml } from "./grades-list";
 
 interface Bootstrap {
 	attendance: Attendance | null;
@@ -98,9 +99,8 @@ function fillCachedCourses(): void {
 	fillCourseNav(local.gradebook.courses, selected);
 }
 
-function expireSession(): never {
-	location.replace("/?error=Your session expired. Please sign in again.");
-	throw new SessionExpiredError();
+function expireSession(expired = false): never {
+	sendToLogin(expired);
 }
 
 async function parseAttendanceResponse(response: Response): Promise<AttendancePayload> {
@@ -132,14 +132,14 @@ async function fetchAttendance(refresh = false): Promise<AttendancePayload> {
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				expireSession();
+				expireSession(true);
 			}
 			throw error;
 		}
 		response = await postAttendance(session, refresh);
 		if (response.status === 401) {
 			await clearSession();
-			expireSession();
+			expireSession(true);
 		}
 	}
 

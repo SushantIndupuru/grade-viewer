@@ -1,137 +1,156 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { defaultDistrictUrl, SOURCE_URL } from '../lib/config';
+import HomeCarousel from '../components/HomeCarousel.astro';
+import { SOURCE_URL } from '../lib/config';
 
-const districtUrl = defaultDistrictUrl();
+if (Astro.url.searchParams.has('error')) {
+	const params = new URLSearchParams();
+	const error = Astro.url.searchParams.get('error');
+	if (error) params.set('error', error);
+	const query = params.toString();
+	return Astro.redirect(query ? `/login?${query}` : '/login');
+}
+
+const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 ---
 
-<Layout title="Sign in · Grade Viewer">
-	<main class="mx-auto flex w-full max-w-sm flex-1 items-center px-4 py-16">
-		<section class="w-full">
-			<p id="session-check" class="text-sm text-muted-foreground">Opening Grade Viewer…</p>
-			<div id="signin" hidden>
-				<h1 class="text-xl font-medium">Grade Viewer</h1>
-				<p class="mt-2 text-sm text-muted-foreground">
-					A pass-through to StudentVUE so you can see your grades and try what-if scores. Your
-					encrypted login stays on this device. We don’t keep your password or gradebook. What-if
-					changes stay here and are never sent back to the district.
-				</p>
-				<p class="mt-3 text-sm text-muted-foreground">
-					<a class="underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Proudly open source</a>
-					{' '}— you can read the code yourself.
-				</p>
-				<p
-					id="signin-error"
-					class="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
+<Layout title="Grade Viewer" description="View StudentVUE grades without storing your password or gradebook. Encrypted login stays on this device. Open source.">
+	<header class="border-b border-border">
+		<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
+			<p class="font-medium">Grade Viewer</p>
+			<div class="flex items-center gap-2">
+				<a
+					class="inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground"
+					href={SOURCE_URL}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.58 9.58 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+					</svg>
+					Source
+				</a>
+				<a
+					class="inline-flex h-8 items-center rounded border border-border px-2.5 text-sm text-foreground no-underline hover:bg-muted"
+					href="/login"
+					data-signed-out
+				>
+					Sign in
+				</a>
+				<a
+					class="inline-flex h-8 items-center rounded bg-foreground px-2.5 text-sm text-background no-underline hover:opacity-90"
+					href="/grades"
+					data-signed-in
 					hidden
-				></p>
-				<form class="mt-5" id="signin-form">
-					<label class="mt-3 block text-sm text-muted-foreground" for="username">Username</label>
-					<input
-						id="username"
-						name="username"
-						class="mt-1 h-9 w-full rounded border border-border bg-background px-2.5 text-sm"
-						autocomplete="username"
-						required
-					/>
-
-					<label class="mt-3 block text-sm text-muted-foreground" for="password">Password</label>
-					<input
-						id="password"
-						name="password"
-						type="password"
-						class="mt-1 h-9 w-full rounded border border-border bg-background px-2.5 text-sm"
-						autocomplete="current-password"
-						required
-					/>
-
-					<label class="mt-3 block text-sm text-muted-foreground" for="districtUrl">District URL</label>
-					<input
-						id="districtUrl"
-						name="districtUrl"
-						class="mt-1 h-9 w-full rounded border border-border bg-background px-2.5 text-sm"
-						value={districtUrl}
-						placeholder="https://your-district.edupoint.com"
-						autocomplete="url"
-						required
-					/>
-
-					<button
-						class="mt-5 h-9 w-full rounded bg-foreground text-sm text-background hover:opacity-90 disabled:opacity-70"
-						type="submit"
-						data-signin
-					>
-						Sign in
-					</button>
-				</form>
-				<p class="mt-4 text-sm text-muted-foreground">
-					Need to set a password first? Follow the&nbsp;
-					<a class="underline" href="/signup">sign-up steps</a>.
-				</p>
-				<p class="mt-3 text-xs leading-relaxed text-muted-foreground">
-					By signing in, you agree that Grade Viewer is an unofficial educational tool, not for
-					profit, and not affiliated with Edupoint, StudentVUE, Synergy, or any school district.
-					It is provided as-is, with no warranty. Use it only with your own account, follow your
-					district’s rules, and use it at your own risk. Read the&nbsp;
-					<a class="underline" href="/privacy">privacy note</a>.
-				</p>
+				>
+					Open grades
+				</a>
 			</div>
+		</div>
+	</header>
+
+	<main class="mx-auto w-full max-w-5xl flex-1 px-4 pt-12 pb-20">
+		<section class="max-w-2xl">
+			<p class="text-sm text-muted-foreground">
+				Open source · encrypted on this device · we keep nothing
+			</p>
+			<h1 class="mt-3 text-4xl font-medium tracking-tight sm:text-5xl">See your grades. Try what-if scores.</h1>
+			<p class="mt-4 text-base leading-relaxed text-muted-foreground">
+				A pass-through to StudentVUE. See course grades and assignment impact, then try what-if
+				scores that never leave this browser and are never sent back to the district.
+			</p>
+			<p class="mt-8 flex flex-wrap items-center gap-2">
+				<a
+					class="inline-flex h-10 items-center rounded bg-foreground px-4 text-sm text-background no-underline hover:opacity-90"
+					href="/login"
+					data-signed-out
+				>
+					Sign in
+				</a>
+				<a
+					class="inline-flex h-10 items-center rounded bg-foreground px-4 text-sm text-background no-underline hover:opacity-90"
+					href="/grades"
+					data-signed-in
+					hidden
+				>
+					Open grades
+				</a>
+				<a
+					class="inline-flex h-10 items-center rounded border border-border px-4 text-sm text-foreground no-underline hover:bg-muted"
+					href="/signup"
+					data-signed-out
+				>
+					Need a password?
+				</a>
+			</p>
 		</section>
+
+		<section class="mt-12" aria-labelledby="trust-heading">
+			<h2 id="trust-heading" class="text-lg font-medium">Your login stays on this device</h2>
+			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+				We don’t keep a password or gradebook. You can verify that in the&nbsp;
+				<a class="underline" href="/privacy">privacy note</a>
+				&nbsp;and the&nbsp;
+				<a class="underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">source</a>.
+			</p>
+
+			<ul class="mt-5 grid gap-3 sm:grid-cols-3">
+				<li class="rounded-lg border border-border p-4">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+						<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+					</svg>
+					<h3 class="mt-3 text-sm font-medium">Encrypted on this device</h3>
+					<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+						After you sign in, this browser keeps an encrypted copy of your StudentVUE login. The
+						key never leaves this device. Sign out and it’s gone.
+					</p>
+				</li>
+				<li class="rounded-lg border border-border p-4">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+						<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+						<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+						<line x1="2" x2="22" y1="2" y2="22"></line>
+					</svg>
+					<h3 class="mt-3 text-sm font-medium">We keep nothing</h3>
+					<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+						No student accounts, no gradebook copies, no password database. The server only relays
+						your request to StudentVUE. What-if scores are never written back.
+					</p>
+				</li>
+				<li>
+					<a
+						class="flex h-full flex-col rounded-lg border border-border p-4 text-foreground no-underline hover:bg-muted"
+						href={SOURCE_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+							<path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.58 9.58 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+						</svg>
+						<h3 class="mt-3 text-sm font-medium">Proudly open source</h3>
+						<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+							We’ve got nothing to hide. Click here to read how sign-in, the StudentVUE relay, and local what-if
+							scores work.
+						</p>
+					</a>
+				</li>
+			</ul>
+		</section>
+
+		<HomeCarousel />
 	</main>
 </Layout>
 
 <script>
-	import { getSession, signIn } from '../lib/session';
-	import { clearLocalAttendance } from '../lib/attendance-local';
-	import { clearLocalDocuments } from '../lib/documents-local';
-	import { clearLocalGradebook } from '../lib/gradebook-local';
-	import { clearLocalMail } from '../lib/mail-local';
-
-	const check = document.querySelector('#session-check');
-	const panel = document.querySelector('#signin');
-	const form = document.querySelector<HTMLFormElement>('#signin-form');
-	const button = document.querySelector<HTMLButtonElement>('[data-signin]');
-	const errorEl = document.querySelector('#signin-error');
-
-	function showError(message: string) {
-		if (!errorEl) return;
-		errorEl.textContent = message;
-		errorEl.removeAttribute('hidden');
-	}
+	import { getSession } from '../lib/session';
 
 	const session = await getSession();
+	const signedOut = document.querySelectorAll('[data-signed-out]');
+	const signedIn = document.querySelectorAll('[data-signed-in]');
 	if (session) {
-		location.replace('/grades');
-	} else {
-		clearLocalGradebook();
-		clearLocalDocuments();
-		clearLocalMail();
-		clearLocalAttendance();
-		check?.setAttribute('hidden', '');
-		panel?.removeAttribute('hidden');
-		const message = new URLSearchParams(location.search).get('error');
-		if (message) showError(message);
+		for (const node of signedOut) node.setAttribute('hidden', '');
+		for (const node of signedIn) node.removeAttribute('hidden');
 	}
-
-	form?.addEventListener('submit', async (event) => {
-		event.preventDefault();
-		if (!form || !button) return;
-		button.disabled = true;
-		button.textContent = 'Signing in…';
-		errorEl?.setAttribute('hidden', '');
-
-		const data = new FormData(form);
-		try {
-			await signIn({
-				username: String(data.get('username') ?? '').trim(),
-				password: String(data.get('password') ?? ''),
-				districtUrl: String(data.get('districtUrl') ?? ''),
-			});
-			location.assign('/grades');
-		} catch (error) {
-			button.disabled = false;
-			button.textContent = 'Sign in';
-			showError(error instanceof Error ? error.message : 'Could not sign in.');
-		}
-	});
 </script>

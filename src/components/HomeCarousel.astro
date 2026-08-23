@@ -1,0 +1,290 @@
+---
+import HomeShot from './HomeShot.astro';
+
+const slides = [
+	{
+		name: 'grades',
+		label: 'Grades',
+		title: 'Every class, one list',
+		copy: 'Open your term and see course grades, teachers, and rooms. Weighted categories and assignment impact are a tap away.',
+		alt: 'Course list with letter grades, percents, and progress bars',
+		width: 928,
+		height: 501,
+	},
+	{
+		name: 'course',
+		label: 'What-if',
+		title: 'What-if scores stay on this device',
+		copy: 'Turn on hypothetical mode to edit scores, add an assignment, and watch the chart and overall grade update. Nothing is written back to StudentVUE.',
+		alt: 'Course page with grade chart, hypothetical mode, and assignments',
+		width: 928,
+		height: 737,
+	},
+	{
+		name: 'mail',
+		label: 'Mail',
+		title: 'School mail in the same place',
+		copy: 'Read StudentVUE messages next to your grades. Unread stays marked until you open it.',
+		alt: 'Inbox with unread school messages',
+		width: 928,
+		height: 284,
+	},
+	{
+		name: 'attendance',
+		label: 'Attendance',
+		title: 'The month at a glance',
+		copy: 'See excused days, tardies, and activities on a calendar, then open a day for the period list.',
+		alt: 'Attendance calendar with excused, tardy, and activity days',
+		width: 928,
+		height: 471,
+	},
+	{
+		name: 'documents',
+		label: 'Documents',
+		title: 'Report cards in the browser',
+		copy: 'Transcripts, report cards, and school forms from StudentVUE, opened here.',
+		alt: 'Document list with report cards, transcripts, and forms',
+		width: 928,
+		height: 282,
+	},
+] as const;
+---
+
+<section class="mt-14" aria-roledescription="carousel" aria-label="Product screens" data-carousel>
+	<div class="flex items-end justify-between gap-3">
+		<div class="min-w-0">
+			<p class="text-sm text-muted-foreground" data-carousel-status aria-live="polite">
+				1 / {slides.length}
+			</p>
+			<h2 class="mt-1 text-lg font-medium" data-carousel-title>{slides[0].title}</h2>
+			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:min-h-[2.75rem]" data-carousel-copy>
+				{slides[0].copy}
+			</p>
+		</div>
+		<div class="mb-0.5 flex shrink-0 items-center gap-1">
+			<button
+				class="inline-flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+				type="button"
+				data-carousel-prev
+				aria-label="Previous screen"
+				disabled
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+					<path d="m15 18-6-6 6-6"></path>
+				</svg>
+			</button>
+			<button
+				class="inline-flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+				type="button"
+				data-carousel-next
+				aria-label="Next screen"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+					<path d="m9 18 6-6-6-6"></path>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<div class="mt-5 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Screens">
+		{slides.map((slide, index) => (
+			<button
+				class:list={[
+					'shrink-0 border-b-2 px-2 py-1.5 text-sm',
+					index === 0 ? 'border-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground',
+				]}
+				type="button"
+				role="tab"
+				id={`carousel-tab-${index}`}
+				aria-controls={`carousel-slide-${index}`}
+				aria-selected={index === 0}
+				data-carousel-tab={index}
+			>
+				{slide.label}
+			</button>
+		))}
+	</div>
+
+	<div class="relative mt-5" data-carousel-viewport>
+		<div
+			class="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] scroll-smooth [&::-webkit-scrollbar]:hidden"
+			data-carousel-track
+			tabindex="0"
+			aria-label="Product screens"
+		>
+			{slides.map((slide, index) => (
+				<figure
+					class:list={[
+						'h-72 w-[76%] shrink-0 overflow-hidden rounded-lg border border-border bg-card transition-opacity sm:h-[28rem] sm:w-[80%]',
+						index === 0 ? 'snap-start' : index === slides.length - 1 ? 'snap-end' : 'snap-center',
+						index === 0 ? 'opacity-100' : 'cursor-pointer opacity-40',
+					]}
+					id={`carousel-slide-${index}`}
+					role="tabpanel"
+					aria-labelledby={`carousel-tab-${index}`}
+					aria-hidden={index !== 0}
+					data-carousel-slide
+					data-title={slide.title}
+					data-copy={slide.copy}
+				>
+					<HomeShot
+						name={slide.name}
+						alt={slide.alt}
+						width={slide.width}
+						height={slide.height}
+						eager={index < 2}
+					/>
+				</figure>
+			))}
+		</div>
+	</div>
+</section>
+
+<script>
+	const root = document.querySelector('[data-carousel]');
+	const track = root?.querySelector('[data-carousel-track]');
+	if (root && track instanceof HTMLElement) {
+		const scroller = track;
+		const slides = [...root.querySelectorAll('[data-carousel-slide]')];
+		const tabs = [...root.querySelectorAll('[data-carousel-tab]')];
+		const title = root.querySelector('[data-carousel-title]');
+		const copy = root.querySelector('[data-carousel-copy]');
+		const status = root.querySelector('[data-carousel-status]');
+		const prev = root.querySelector<HTMLButtonElement>('[data-carousel-prev]');
+		const next = root.querySelector<HTMLButtonElement>('[data-carousel-next]');
+		const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let active = 0;
+		let target = 0;
+		let settleTimer = 0;
+
+		function scrollBehavior(): ScrollBehavior {
+			return reduceMotion.matches ? 'instant' : 'smooth';
+		}
+
+		function clamp(index: number) {
+			return Math.max(0, Math.min(index, slides.length - 1));
+		}
+
+		function scrollToSlide(slide: Element, index: number) {
+			if (!(slide instanceof HTMLElement)) return;
+			if (index === 0) {
+				scroller.scrollTo({ left: 0, behavior: scrollBehavior() });
+				return;
+			}
+			if (index === slides.length - 1) {
+				scroller.scrollTo({
+					left: scroller.scrollWidth - scroller.clientWidth,
+					behavior: scrollBehavior(),
+				});
+				return;
+			}
+			const slideBox = slide.getBoundingClientRect();
+			const viewBox = scroller.getBoundingClientRect();
+			const left =
+				scroller.scrollLeft + (slideBox.left + slideBox.width / 2) - (viewBox.left + viewBox.width / 2);
+			scroller.scrollTo({ left, behavior: scrollBehavior() });
+		}
+
+		function commit(index: number) {
+			const nextIndex = clamp(index);
+			active = nextIndex;
+			target = nextIndex;
+			const slide = slides[active];
+			if (title) title.textContent = slide?.getAttribute('data-title') ?? '';
+			if (copy) copy.textContent = slide?.getAttribute('data-copy') ?? '';
+			if (status) status.textContent = `${active + 1} / ${slides.length}`;
+			if (prev) prev.disabled = active === 0;
+			if (next) next.disabled = active === slides.length - 1;
+
+			for (const [i, tab] of tabs.entries()) {
+				const on = i === active;
+				tab.setAttribute('aria-selected', on ? 'true' : 'false');
+				tab.classList.toggle('border-foreground', on);
+				tab.classList.toggle('font-medium', on);
+				tab.classList.toggle('border-transparent', !on);
+				tab.classList.toggle('text-muted-foreground', !on);
+			}
+			for (const [i, node] of slides.entries()) {
+				const on = i === active;
+				node.setAttribute('aria-hidden', on ? 'false' : 'true');
+				node.classList.toggle('opacity-100', on);
+				node.classList.toggle('opacity-40', !on);
+				node.classList.toggle('cursor-pointer', !on);
+			}
+		}
+
+		function goTo(index: number) {
+			const nextIndex = clamp(index);
+			target = nextIndex;
+			const slide = slides[nextIndex];
+			if (slide) scrollToSlide(slide, nextIndex);
+		}
+
+		function nearest() {
+			const view = scroller.getBoundingClientRect();
+			const origin = view.left + view.width / 2;
+			let best = 0;
+			let dist = Infinity;
+			for (const [i, slide] of slides.entries()) {
+				if (!(slide instanceof HTMLElement)) continue;
+				const box = slide.getBoundingClientRect();
+				const delta = Math.abs(box.left + box.width / 2 - origin);
+				if (delta < dist) {
+					dist = delta;
+					best = i;
+				}
+			}
+			return best;
+		}
+
+		function settle() {
+			commit(nearest());
+		}
+
+		scroller.addEventListener(
+			'scroll',
+			() => {
+				window.clearTimeout(settleTimer);
+				settleTimer = window.setTimeout(settle, 80);
+			},
+			{ passive: true },
+		);
+		scroller.addEventListener('scrollend', () => {
+			window.clearTimeout(settleTimer);
+			settle();
+		});
+
+		prev?.addEventListener('click', () => goTo(target - 1));
+		next?.addEventListener('click', () => goTo(target + 1));
+		for (const [i, tab] of tabs.entries()) {
+			tab.addEventListener('click', () => goTo(i));
+		}
+		for (const [i, node] of slides.entries()) {
+			node.addEventListener('click', () => {
+				if (i !== target) goTo(i);
+			});
+		}
+
+		root.addEventListener('keydown', (event) => {
+			const key = event instanceof KeyboardEvent ? event.key : '';
+			if (key === 'ArrowLeft') {
+				event.preventDefault();
+				goTo(target - 1);
+			}
+			if (key === 'ArrowRight') {
+				event.preventDefault();
+				goTo(target + 1);
+			}
+			if (key === 'Home') {
+				event.preventDefault();
+				goTo(0);
+			}
+			if (key === 'End') {
+				event.preventDefault();
+				goTo(slides.length - 1);
+			}
+		});
+
+		commit(0);
+	}
+</script>

@@ -11,8 +11,9 @@ import {
 	postDocumentContent,
 	postDocuments,
 	refreshSession,
+	sendToLogin,
 } from "../lib/session";
-import { errorHtml, fillCourseNav, isSessionExpired, loadingHtml, SessionExpiredError, spinnerHtml } from "./grades-list";
+import { errorHtml, fillCourseNav, isSessionExpired, loadingHtml, spinnerHtml } from "./grades-list";
 import { fileNameFromResponse, openFilePreview, type PreviewSource } from "./file-preview";
 
 interface Bootstrap {
@@ -90,9 +91,8 @@ async function parseDocumentsResponse(response: Response): Promise<DocumentsPayl
 	return payload;
 }
 
-function expireSession(): never {
-	location.replace("/?error=Your session expired. Please sign in again.");
-	throw new SessionExpiredError();
+function expireSession(expired = false): never {
+	sendToLogin(expired);
 }
 
 async function fetchDocuments(refresh = false): Promise<DocumentsPayload> {
@@ -111,14 +111,14 @@ async function fetchDocuments(refresh = false): Promise<DocumentsPayload> {
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				expireSession();
+				expireSession(true);
 			}
 			throw error;
 		}
 		response = await postDocuments(session, refresh);
 		if (response.status === 401) {
 			await clearSession();
-			expireSession();
+			expireSession(true);
 		}
 	}
 
@@ -140,14 +140,14 @@ async function fetchDocumentFile(documentGU: string, fallbackName: string): Prom
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				expireSession();
+				expireSession(true);
 			}
 			throw error;
 		}
 		response = await postDocumentContent(session, documentGU);
 		if (response.status === 401) {
 			await clearSession();
-			expireSession();
+			expireSession(true);
 		}
 	}
 

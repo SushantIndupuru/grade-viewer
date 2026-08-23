@@ -2,7 +2,7 @@ import type { Course, Gradebook, ReportingPeriod } from "../lib/studentvue/types
 import { icons } from "./icons";
 import { cacheIsFresh } from "../lib/grades/cache-policy";
 import { peekLocalGradebook, readLocalGradebook, writeLocalGradebook } from "../lib/gradebook-local";
-import { AuthExpiredError, clearSession, getSession, postGradebook, refreshSession } from "../lib/session";
+import { AuthExpiredError, clearSession, getSession, LoginRedirectError, postGradebook, refreshSession, sendToLogin } from "../lib/session";
 import {
 	displayCourseTitle,
 	displayPercent,
@@ -106,13 +106,11 @@ export class SessionExpiredError extends Error {
 }
 
 export function isSessionExpired(error: unknown): boolean {
-	return error instanceof SessionExpiredError;
+	return error instanceof SessionExpiredError || error instanceof LoginRedirectError;
 }
 
-function redirectToLogin(): never {
-	const params = new URLSearchParams({ error: "Your session expired. Please sign in again." });
-	location.replace(`/?${params}`);
-	throw new SessionExpiredError();
+function redirectToLogin(expired = false): never {
+	sendToLogin(expired);
 }
 
 async function parseGradebookResponse(response: Response): Promise<GradebookPayload> {
@@ -146,14 +144,14 @@ export async function fetchGradebook(period: string, refresh = false): Promise<G
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				redirectToLogin();
+				redirectToLogin(true);
 			}
 			throw error;
 		}
 		response = await postGradebook(session, period, refresh);
 		if (response.status === 401) {
 			await clearSession();
-			redirectToLogin();
+			redirectToLogin(true);
 		}
 	}
 

@@ -31,10 +31,52 @@ export async function clearSession(): Promise<void> {
 	]);
 }
 
+const LOGIN_EXPIRED_MESSAGE = "Your session expired. Please sign in again.";
+
+export function isSafeLoginNext(path: string | null | undefined): path is string {
+	if (!path) return false;
+	if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) return false;
+	if (path === "/login" || path.startsWith("/login?") || path.startsWith("/login/")) return false;
+	if (path === "/signup" || path.startsWith("/signup?")) return false;
+	if (path === "/") return false;
+	return true;
+}
+
+export function safeLoginNext(path: string | null | undefined): string {
+	return isSafeLoginNext(path) ? path : "/grades";
+}
+
+function returnPath(): string | undefined {
+	if (typeof location === "undefined") return undefined;
+	const path = `${location.pathname}${location.search}`;
+	return isSafeLoginNext(path) ? path : undefined;
+}
+
+export function loginHref(error?: string): string {
+	const params = new URLSearchParams();
+	if (error) params.set("error", error);
+	const next = returnPath();
+	if (next) params.set("next", next);
+	const query = params.toString();
+	return query ? `/login?${query}` : "/login";
+}
+
+export class LoginRedirectError extends Error {
+	constructor() {
+		super("Redirecting to sign in.");
+		this.name = "LoginRedirectError";
+	}
+}
+
+export function sendToLogin(expired = false): never {
+	location.replace(loginHref(expired ? LOGIN_EXPIRED_MESSAGE : undefined));
+	throw new LoginRedirectError();
+}
+
 export async function requireSession(): Promise<Session | null> {
 	const session = await getSession();
 	if (session) return session;
-	location.replace("/");
+	location.replace(loginHref());
 	return null;
 }
 

@@ -15,9 +15,10 @@ import {
 	postMailMove,
 	postMailRead,
 	refreshSession,
+	sendToLogin,
 	type Session,
 } from "../lib/session";
-import { errorHtml, fillCourseNav, isSessionExpired, loadingHtml, SessionExpiredError, spinnerHtml } from "./grades-list";
+import { errorHtml, fillCourseNav, isSessionExpired, loadingHtml, spinnerHtml } from "./grades-list";
 import { fileNameFromResponse, openFilePreview, type PreviewSource } from "./file-preview";
 
 interface Bootstrap {
@@ -159,9 +160,8 @@ function fillCachedCourses(): void {
 	fillCourseNav(local.gradebook.courses, selected);
 }
 
-function expireSession(): never {
-	location.replace("/?error=Your session expired. Please sign in again.");
-	throw new SessionExpiredError();
+function expireSession(expired = false): never {
+	sendToLogin(expired);
 }
 
 async function parseMailResponse(response: Response): Promise<MailPayload> {
@@ -204,14 +204,14 @@ async function fetchMail(folder: string, skip: number, refresh: boolean): Promis
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				expireSession();
+				expireSession(true);
 			}
 			throw error;
 		}
 		response = await postMail(session, folder, skip, refresh);
 		if (response.status === 401) {
 			await clearSession();
-			expireSession();
+			expireSession(true);
 		}
 	}
 
@@ -236,14 +236,14 @@ async function fetchAttachmentFile(smAttachmentGU: string, fallbackName: string)
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				expireSession();
+				expireSession(true);
 			}
 			throw error;
 		}
 		response = await postMailAttachment(session, smAttachmentGU);
 		if (response.status === 401) {
 			await clearSession();
-			expireSession();
+			expireSession(true);
 		}
 	}
 
@@ -323,14 +323,14 @@ async function withMailSessionRetry(send: (session: Session) => Promise<Response
 		} catch (error) {
 			if (error instanceof AuthExpiredError) {
 				await clearSession();
-				expireSession();
+				expireSession(true);
 			}
 			throw error;
 		}
 		response = await send(session);
 		if (response.status === 401) {
 			await clearSession();
-			expireSession();
+			expireSession(true);
 		}
 	}
 	return response;

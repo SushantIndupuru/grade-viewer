@@ -1,0 +1,137 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { defaultDistrictUrl, SOURCE_URL } from '../lib/config';
+
+const districtUrl = defaultDistrictUrl();
+---
+
+<Layout title="Sign in · Grade Viewer">
+	<main class="mx-auto flex w-full max-w-sm flex-1 items-center px-4 py-16">
+		<section class="w-full">
+			<p id="session-check" class="text-sm text-muted-foreground">Opening Grade Viewer…</p>
+			<div id="signin" hidden>
+				<a class="text-xl font-medium text-foreground no-underline" href="/">Grade Viewer</a>
+				<p class="mt-2 text-sm text-muted-foreground">
+					Sign in with your StudentVUE username and password. Your encrypted login stays on this
+					device.
+				</p>
+				<p
+					id="signin-error"
+					class="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
+					hidden
+				></p>
+				<form class="mt-5" id="signin-form">
+					<label class="mt-3 block text-sm text-muted-foreground" for="username">Username</label>
+					<input
+						id="username"
+						name="username"
+						class="mt-1 h-9 w-full rounded border border-border bg-background px-2.5 text-sm"
+						autocomplete="username"
+						required
+					/>
+
+					<label class="mt-3 block text-sm text-muted-foreground" for="password">Password</label>
+					<input
+						id="password"
+						name="password"
+						type="password"
+						class="mt-1 h-9 w-full rounded border border-border bg-background px-2.5 text-sm"
+						autocomplete="current-password"
+						required
+					/>
+
+					<label class="mt-3 block text-sm text-muted-foreground" for="districtUrl">District URL</label>
+					<input
+						id="districtUrl"
+						name="districtUrl"
+						class="mt-1 h-9 w-full rounded border border-border bg-background px-2.5 text-sm"
+						value={districtUrl}
+						placeholder="https://your-district.edupoint.com"
+						autocomplete="url"
+						required
+					/>
+
+					<button
+						class="mt-5 h-9 w-full rounded bg-foreground text-sm text-background hover:opacity-90 disabled:opacity-70"
+						type="submit"
+						data-signin
+					>
+						Sign in
+					</button>
+				</form>
+				<p class="mt-4 text-sm text-muted-foreground">
+					Need to set a password first? Follow the&nbsp;
+					<a class="underline" href="/signup">sign-up steps</a>.
+				</p>
+				<p class="mt-3 text-xs leading-relaxed text-muted-foreground">
+					By signing in, you agree that Grade Viewer is an unofficial educational tool, not for
+					profit, and not affiliated with Edupoint, StudentVUE, Synergy, or any school district.
+					It is provided as-is, with no warranty. Use it only with your own account, follow your
+					district’s rules, and use it at your own risk. Read the&nbsp;
+					<a class="underline" href="/privacy">privacy note</a>.
+					{' '}
+					<a class="underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Proudly open source</a>.
+				</p>
+			</div>
+		</section>
+	</main>
+</Layout>
+
+<script>
+	import { getSession, safeLoginNext, signIn } from '../lib/session';
+	import { clearLocalAttendance } from '../lib/attendance-local';
+	import { clearLocalDocuments } from '../lib/documents-local';
+	import { clearLocalGradebook } from '../lib/gradebook-local';
+	import { clearLocalMail } from '../lib/mail-local';
+
+	const check = document.querySelector('#session-check');
+	const panel = document.querySelector('#signin');
+	const form = document.querySelector<HTMLFormElement>('#signin-form');
+	const button = document.querySelector<HTMLButtonElement>('[data-signin]');
+	const errorEl = document.querySelector('#signin-error');
+
+	function showError(message: string) {
+		if (!errorEl) return;
+		errorEl.textContent = message;
+		errorEl.removeAttribute('hidden');
+	}
+
+	const session = await getSession();
+	if (session) {
+		const next = new URLSearchParams(location.search).get('next');
+		location.replace(safeLoginNext(next));
+	} else {
+		clearLocalGradebook();
+		clearLocalDocuments();
+		clearLocalMail();
+		clearLocalAttendance();
+		check?.setAttribute('hidden', '');
+		panel?.removeAttribute('hidden');
+		const params = new URLSearchParams(location.search);
+		const message = params.get('error');
+		if (message) showError(message);
+	}
+
+	form?.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		if (!form || !button) return;
+		button.disabled = true;
+		button.textContent = 'Signing in…';
+		errorEl?.setAttribute('hidden', '');
+
+		const data = new FormData(form);
+		try {
+			await signIn({
+				username: String(data.get('username') ?? '').trim(),
+				password: String(data.get('password') ?? ''),
+				districtUrl: String(data.get('districtUrl') ?? ''),
+			});
+			const next = new URLSearchParams(location.search).get('next');
+			location.assign(safeLoginNext(next));
+		} catch (error) {
+			button.disabled = false;
+			button.textContent = 'Sign in';
+			showError(error instanceof Error ? error.message : 'Could not sign in.');
+		}
+	});
+</script>
