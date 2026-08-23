@@ -1,0 +1,114 @@
+---
+interface Props {
+	name?: string;
+	school?: string;
+	periods?: { index: string; gradePeriod: string }[];
+	selectedPeriod?: string;
+	periodQuery?: string;
+	section?: 'grades' | 'documents' | 'attendance' | 'mail';
+}
+
+const { name = '', school = '', periods = [], selectedPeriod = '', periodQuery = '', section = 'grades' } = Astro.props;
+const studentLine = [name, school].filter(Boolean).join(' · ');
+---
+
+<header class="border-b border-border">
+	<div class="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+		<a href={`/grades${periodQuery}`} class="min-w-0 text-foreground no-underline">
+			<p class="font-medium">Grade Viewer</p>
+			<p class="truncate text-sm text-muted-foreground" data-student-line>{studentLine}</p>
+		</a>
+		<div class="flex items-center gap-2">
+			<div id="period-host">
+				{periods.length > 0 && (
+					<form>
+						<label class="sr-only" for="period">Term</label>
+						<select
+							id="period"
+							name="period"
+							class="h-8 rounded border border-border bg-background px-2 text-sm"
+							onchange="this.form.submit()"
+						>
+							{periods.map((item) => (
+								<option value={item.index} selected={item.index === selectedPeriod}>
+									{item.gradePeriod}
+								</option>
+							))}
+						</select>
+					</form>
+				)}
+			</div>
+			<button
+				class="h-8 rounded border border-border px-2.5 text-sm hover:bg-muted"
+				type="button"
+				data-signout
+			>
+				Sign out
+			</button>
+		</div>
+	</div>
+	<nav class="mx-auto flex w-full max-w-3xl gap-1 px-4 pb-3 md:hidden" aria-label="App">
+		<a
+			href="/mail"
+			class:list={[
+				'rounded px-2 py-1 text-sm no-underline',
+				section === 'mail'
+					? 'bg-muted font-medium text-foreground'
+					: 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+			]}
+			aria-current={section === 'mail' ? 'page' : undefined}
+		>
+			Mail
+		</a>
+		<a
+			href="/attendance"
+			class:list={[
+				'rounded px-2 py-1 text-sm no-underline',
+				section === 'attendance'
+					? 'bg-muted font-medium text-foreground'
+					: 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+			]}
+			aria-current={section === 'attendance' ? 'page' : undefined}
+		>
+			Attendance
+		</a>
+		<a
+			href={`/grades${periodQuery}`}
+			class:list={[
+				'rounded px-2 py-1 text-sm no-underline',
+				section === 'grades'
+					? 'bg-muted font-medium text-foreground'
+					: 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+			]}
+			aria-current={section === 'grades' ? 'page' : undefined}
+		>
+			Grades
+		</a>
+		<a
+			href="/documents"
+			class:list={[
+				'rounded px-2 py-1 text-sm no-underline',
+				section === 'documents'
+					? 'bg-muted font-medium text-foreground'
+					: 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+			]}
+			aria-current={section === 'documents' ? 'page' : undefined}
+		>
+			Documents
+		</a>
+	</nav>
+</header>
+
+<script>
+	import { applyStudentHeader, requireSession, signOut } from '../lib/session';
+
+	const session = await requireSession();
+	if (session) applyStudentHeader(session);
+
+	document.querySelector('[data-signout]')?.addEventListener('click', async (event) => {
+		const button = event.currentTarget as HTMLButtonElement;
+		button.disabled = true;
+		await signOut();
+		location.assign('/');
+	});
+</script>

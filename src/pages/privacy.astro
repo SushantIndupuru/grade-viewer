@@ -1,0 +1,103 @@
+---
+import BackLink from '../components/BackLink.astro';
+import Layout from '../layouts/Layout.astro';
+import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
+---
+
+<Layout title="Privacy · Grade Viewer" description="How Grade Viewer handles StudentVUE logins and grades.">
+	<main class="mx-auto w-full max-w-3xl px-4 py-10 pb-16">
+		<div class="-ml-1 flex items-center gap-1">
+			<BackLink href="/" label="Back to sign in" />
+			<h1 class="text-xl font-medium">Privacy</h1>
+		</div>
+		<p class="mt-3 text-sm text-muted-foreground">Last updated August 23, 2026</p>
+
+		<div class="mt-8 space-y-6 text-sm leading-relaxed text-muted-foreground">
+			<p>
+				Grade Viewer is a small educational helper for looking at the grades your school already
+				stores in StudentVUE. It is not a district system, and it is not affiliated with,
+				endorsed by, or associated with Edupoint, StudentVUE, Synergy, or any school district. It
+				is not used for profit, and it is not a place where we collect or keep student records.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">What this app does</h2>
+			<p>
+				When you sign in, this site sends your StudentVUE username and password to your district’s
+				StudentVUE server and asks it for your gradebook, documents, mail, and attendance. The reply is shown to you in the browser.
+				The server in the middle exists only so the app can talk to StudentVUE. We do not use your
+				login to change anything in the district system, and hypothetical / what-if scores never
+				leave this device.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">What we don’t keep</h2>
+			<ul class="list-disc space-y-2 pl-5">
+				<li>We do not create accounts, mailing lists, or a database of students.</li>
+				<li>We do not save your password or grades in a file, database, or backup that we review.</li>
+				<li>We do not sell, share, or look through your gradebook, documents, mail, or attendance.</li>
+				<li>We do not send what-if scores, assignment edits, or “needed score” experiments back to
+					StudentVUE or to anyone else.</li>
+			</ul>
+
+			<h2 class="text-base font-medium text-foreground">What stays on your device</h2>
+			<p>
+				After you sign in once, this browser stores an encrypted copy of your StudentVUE login so
+				you don’t have to type your password again. The encryption key never leaves this device, and
+				Grade Viewer does not keep a server-side session or cookie with your credentials. Signing
+				out deletes the saved login. Charts, filters, and hypothetical assignments exist only in
+				that browser tab until you leave.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">Who actually has your grades</h2>
+			<p>
+				Your school and StudentVUE (Edupoint) already have your grades. Their privacy rules still
+				apply. Grade Viewer does not replace those systems; it only displays what they return when
+				you sign in.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">Terms of use</h2>
+			<p>
+				By signing in, you agree to these terms. Grade Viewer is an independent educational
+				project. It is not affiliated with Edupoint Educational Systems, StudentVUE, Synergy, or
+				any school district. Those names and marks belong to their owners.
+			</p>
+			<p>
+				This site is for educational purposes only. It is not used for profit in any way: there
+				are no ads, paid plans, or sale of student data. You may use it only with your own
+				StudentVUE account, and you are responsible for following your district’s acceptable-use
+				rules.
+			</p>
+			<p>
+				The app is provided “as is,” without warranties of any kind, including accuracy,
+				availability, or fitness for a particular purpose. Grades shown here may be incomplete or
+				out of date compared with StudentVUE. Grade Viewer and its operators are not liable for
+				missed work, incorrect displayed grades, account problems, school or district action, or
+				any other loss from using this tool. You use it at your own risk.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">Open source</h2>
+			<p>
+				Grade Viewer is proudly open source. You can read the code at
+				{' '}<a class="underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">{SOURCE_URL.replace('https://', '')}</a>
+				{' '}and see how sign-in and gradebook requests work.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">Hosting</h2>
+			<p>
+				The site is hosted on infrastructure that delivers the app and relays those StudentVUE
+				requests. Standard web logs from a host (such as the fact that a page was requested) may
+				exist on that platform. We do not use that to identify students or read gradebooks.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">Questions</h2>
+			<p>
+				If you did not mean to use this tool, sign out. That clears the encrypted login on this
+				device. You can also close the tab. Nothing is stored for us to delete later, because we do
+				not keep a copy.
+			</p>
+			<p>
+				For feedback, problems, or other questions, email
+				{' '}<a class="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+			</p>
+		</div>
+	</main>
+</Layout>

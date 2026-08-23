@@ -1,0 +1,42 @@
+---
+import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
+
+const pathname = Astro.url.pathname;
+const compact = pathname === '/privacy' || pathname === '/signup';
+const signedInPage =
+	pathname === '/grades' ||
+	pathname.startsWith('/grades/') ||
+	pathname === '/documents' ||
+	pathname === '/attendance' ||
+	pathname === '/mail';
+---
+
+<footer class="mt-auto border-t border-border">
+	<div class="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 text-xs text-muted-foreground">
+		{compact ? (
+			<p>Grade Viewer is a pass-through to StudentVUE.</p>
+		) : (
+			<p>
+				This app only relays your request to StudentVUE. We don’t keep a copy of your password or
+				grades.
+			</p>
+		)}
+		<nav class="flex gap-3">
+			<a class="text-inherit underline" href="/signup" data-signup-link hidden={signedInPage}>Sign up</a>
+			<a class="text-inherit underline" href="/privacy">Privacy</a>
+			<a class="text-inherit underline" href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
+			<a class="text-inherit underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Proudly open source</a>
+		</nav>
+	</div>
+</footer>
+
+<script>
+	import { getSession } from '../lib/session';
+
+	const link = document.querySelector('[data-signup-link]');
+	if (link) {
+		const session = await getSession();
+		if (session) link.setAttribute('hidden', '');
+		else link.removeAttribute('hidden');
+	}
+</script>

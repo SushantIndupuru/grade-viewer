@@ -1,0 +1,123 @@
+---
+import AppHeader from '../../components/AppHeader.astro';
+import AppSidebar from '../../components/AppSidebar.astro';
+import Layout from '../../layouts/Layout.astro';
+
+const index = Number(Astro.params.index);
+if (!Number.isInteger(index) || index < 0) {
+	return Astro.redirect('/grades');
+}
+
+const period = Astro.url.searchParams.get('period') ?? '';
+const refresh = Astro.url.searchParams.has('refresh');
+const periodQuery = period ? `?period=${encodeURIComponent(period)}` : '';
+const payload = JSON.stringify({
+	course: null,
+	index,
+	period,
+	fetchedAt: 0,
+	refresh,
+}).replaceAll('<', '\\u003c');
+---
+
+<Layout title="Course · Grade Viewer">
+	<AppSidebar slot="sidebar" courses={[]} periodQuery={periodQuery} activeIndex={index} />
+	<AppHeader periodQuery={periodQuery} section="grades" />
+
+	<main class="mx-auto flex min-h-[70vh] w-full max-w-3xl flex-1 flex-col px-4 pb-16">
+		<div id="app">
+			<div class="mt-8" role="status" aria-live="polite">
+				<p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+					<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+					</svg>
+					Loading course…
+				</p>
+			</div>
+		</div>
+		<script id="bootstrap" type="application/json" set:html={payload} />
+	</main>
+</Layout>
+
+<script>
+	import { mountCourseDetail } from '../../components/course-detail';
+	import {
+		courseLoadingHtml,
+		errorHtml,
+		fetchGradebook,
+		fillGradebookChrome,
+		isSessionExpired,
+		loadingHtml,
+	} from '../../components/grades-list';
+	import { peekLocalGradebook, readLocalGradebook } from '../../lib/gradebook-local';
+	import type { Course } from '../../lib/studentvue/types';
+
+	const node = document.querySelector('#bootstrap');
+	const app = document.querySelector('#app');
+	if (node && app) {
+		const root = app;
+		const data = JSON.parse(node.textContent || '{}') as {
+			course: Course | null;
+			index: number;
+			period?: string;
+			fetchedAt?: number;
+			refresh?: boolean;
+		};
+
+		async function start() {
+			const period = data.period ?? '';
+			const fresh = !data.refresh ? peekLocalGradebook(period) : null;
+			const previous = readLocalGradebook(period);
+			const cached = fresh ?? previous;
+			const course = cached?.gradebook.courses[data.index] ?? null;
+
+			if (cached) {
+				fillGradebookChrome(cached.gradebook, period, data.index, !fresh);
+			}
+
+			if (fresh && course) {
+				mountCourseDetail(root, { ...data, course, fetchedAt: fresh.fetchedAt });
+				return;
+			}
+
+			if (previous && course) {
+				root.innerHTML = courseLoadingHtml(course, period);
+			} else {
+				root.innerHTML = loadingHtml('Loading course…', false);
+			}
+
+			try {
+				const payload = await fetchGradebook(period, Boolean(data.refresh));
+				const next = payload.gradebook?.courses[data.index];
+				if (!next) {
+					const query = period ? `?period=${encodeURIComponent(period)}` : '';
+					location.replace(`/grades${query}`);
+					return;
+				}
+				if (data.refresh) {
+					const url = new URL(location.href);
+					url.searchParams.delete('refresh');
+					history.replaceState(null, '', `${url.pathname}${url.search}`);
+				}
+				const selected = data.period || payload.gradebook?.reportingPeriod?.index || '';
+				if (payload.gradebook) {
+					fillGradebookChrome(payload.gradebook, selected, data.index);
+				}
+				mountCourseDetail(root, {
+					course: next,
+					index: data.index,
+					period: selected,
+					fetchedAt: payload.fetchedAt,
+				});
+			} catch (error) {
+				if (isSessionExpired(error)) return;
+				root.innerHTML = errorHtml(
+					error instanceof Error ? error.message : 'Could not load the gradebook.',
+				);
+			}
+		}
+
+		void start();
+	}
+</script>
