@@ -1,6 +1,7 @@
 ---
 import SiteFooter from '../components/SiteFooter.astro';
 import '../styles/global.css';
+import { THEME_COOKIE, isTheme } from '../lib/theme';
 
 interface Props {
 	title?: string;
@@ -11,11 +12,24 @@ const SITE_NAME = 'Grade Viewer';
 const site = Astro.site ?? new URL('https://gradeviewer.org');
 const { title = SITE_NAME, description = 'View StudentVUE grades, assignment impact, and local what-if scores.' } = Astro.props;
 const canonical = new URL(Astro.url.pathname, site);
+const themeCookie = Astro.cookies.get(THEME_COOKIE)?.value;
+const theme = isTheme(themeCookie) ? themeCookie : null;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" class:list={[{ dark: theme === 'dark' }]} style={theme ? `color-scheme: ${theme}` : undefined}>
 	<head>
+		<script is:inline>
+			(() => {
+				const match = document.cookie.match(/(?:^|; )gv_theme=([^;]*)/);
+				const stored = match ? decodeURIComponent(match[1]) : '';
+				const dark =
+					stored === 'dark' ||
+					(stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+				document.documentElement.classList.toggle('dark', dark);
+				document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+			})();
+		</script>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="canonical" href={canonical} />
@@ -49,3 +63,9 @@ const canonical = new URL(Astro.url.pathname, site);
 		)}
 	</body>
 </html>
+
+<script>
+	import { bindThemeControls } from '../lib/theme';
+
+	bindThemeControls();
+</script>

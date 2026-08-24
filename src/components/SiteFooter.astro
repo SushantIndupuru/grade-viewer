@@ -1,5 +1,6 @@
 ---
 import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
+import ThemeToggle from './ThemeToggle.astro';
 
 const pathname = Astro.url.pathname;
 const compact = pathname === '/privacy' || pathname === '/signup' || pathname === '/login';
@@ -21,7 +22,8 @@ const signedInPage =
 				grades.
 			</p>
 		)}
-		<nav class="flex gap-3">
+		<nav class="flex items-center gap-3">
+			<ThemeToggle />
 			<a class="text-inherit underline" href="/signup" data-signup-link hidden={signedInPage}>Sign up</a>
 			<a class="text-inherit underline" href="/privacy">Privacy</a>
 			<a class="text-inherit underline" href={`mailto:${CONTACT_EMAIL}`}>Contact</a>

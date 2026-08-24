@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
 import { defaultDistrictUrl, SOURCE_URL } from '../lib/config';
 
 const districtUrl = defaultDistrictUrl();
@@ -10,7 +11,10 @@ const districtUrl = defaultDistrictUrl();
 		<section class="w-full">
 			<p id="session-check" class="text-sm text-muted-foreground">Opening Grade Viewer…</p>
 			<div id="signin" hidden>
-				<a class="text-xl font-medium text-foreground no-underline" href="/">Grade Viewer</a>
+				<div class="flex items-center justify-between gap-3">
+					<a class="text-xl font-medium text-foreground no-underline" href="/">Grade Viewer</a>
+					<ThemeToggle />
+				</div>
 				<p class="mt-2 text-sm text-muted-foreground">
 					Sign in with your StudentVUE username and password. Your encrypted login stays on this
 					device.
