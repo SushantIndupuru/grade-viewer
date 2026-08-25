@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @source "../**/*.{astro,html,js,jsx,ts,tsx}";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
 	--color-background: var(--background);
@@ -24,7 +25,7 @@
 }
 
 :root {
-	color-scheme: light dark;
+	color-scheme: light;
 	--background: #f6f6f6;
 	--foreground: #1a1a1a;
 	--card: #ffffff;
@@ -45,27 +46,26 @@
 	--tertiary-foreground: #5c5c5c;
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #111111;
-		--foreground: #f0f0f0;
-		--card: #1a1a1a;
-		--card-foreground: #f0f0f0;
-		--muted: #262626;
-		--muted-foreground: #a3a3a3;
-		--secondary: #262626;
-		--secondary-foreground: #e5e5e5;
-		--primary: #f0f0f0;
-		--primary-foreground: #111111;
-		--border: #333333;
-		--input: #333333;
-		--ring: #a3a3a3;
-		--accent: #262626;
-		--accent-foreground: #f0f0f0;
-		--chart: #60a5fa;
-		--chart-bg: #60a5fa;
-		--tertiary-foreground: #a3a3a3;
-	}
+html.dark {
+	color-scheme: dark;
+	--background: #111111;
+	--foreground: #f0f0f0;
+	--card: #1a1a1a;
+	--card-foreground: #f0f0f0;
+	--muted: #262626;
+	--muted-foreground: #a3a3a3;
+	--secondary: #262626;
+	--secondary-foreground: #e5e5e5;
+	--primary: #f0f0f0;
+	--primary-foreground: #111111;
+	--border: #333333;
+	--input: #333333;
+	--ring: #a3a3a3;
+	--accent: #262626;
+	--accent-foreground: #f0f0f0;
+	--chart: #60a5fa;
+	--chart-bg: #60a5fa;
+	--tertiary-foreground: #a3a3a3;
 }
 
 @layer base {

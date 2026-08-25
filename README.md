@@ -59,4 +59,4 @@ To self-host with Node instead of Vercel, switch the adapter in `astro.config.mj
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

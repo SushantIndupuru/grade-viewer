@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import HomeCarousel from '../components/HomeCarousel.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
 import { SOURCE_URL } from '../lib/config';
 
 if (Astro.url.searchParams.has('error')) {
@@ -19,6 +20,7 @@ const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
 			<p class="font-medium">Grade Viewer</p>
 			<div class="flex items-center gap-2">
+				<ThemeToggle />
 				<a
 					class="inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground"
 					href={SOURCE_URL}
