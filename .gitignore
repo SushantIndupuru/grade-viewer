@@ -20,9 +20,6 @@ pnpm-debug.log*
 flows*
 studentvue-dumps/
 
-# optional local debug login recorder (not used in production)
-src/lib/debug/datalogger.ts
-
 # OS / editors
 .DS_Store
 .idea/

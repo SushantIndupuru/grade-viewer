@@ -389,7 +389,10 @@ function mimeFor(docType: string, fileName: string): string {
 function decodeBase64(value: string): Uint8Array {
 	const cleaned = value.replace(/\s+/g, "");
 	if (!cleaned) return new Uint8Array();
-	return Uint8Array.from(Buffer.from(cleaned, "base64"));
+	const binary = atob(cleaned);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+	return bytes;
 }
 
 function parseDocumentFile(node: Record<string, unknown>): DocumentFile | null {

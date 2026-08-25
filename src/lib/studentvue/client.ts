@@ -22,9 +22,19 @@ export class StudentVueError extends Error {
 
 const STUDENTVUE_TIMEOUT_MS = 30_000;
 
+async function resolveFetch(): Promise<(input: string, init?: RequestInit) => Promise<Response>> {
+	if (import.meta.env.SSR) {
+		throw new Error("StudentVUE requests run in the browser only.");
+	}
+	const { getStudentVueTransport } = await import("./transport");
+	const transport = getStudentVueTransport();
+	return (input, init) => transport.fetch(input, init);
+}
+
 export async function studentVueFetch(url: string, init: RequestInit = {}): Promise<Response> {
 	try {
-		return await fetch(url, {
+		const run = await resolveFetch();
+		return await run(url, {
 			...init,
 			signal: init.signal ?? AbortSignal.timeout(STUDENTVUE_TIMEOUT_MS),
 		});

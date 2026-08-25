@@ -9,6 +9,13 @@ function clientData(path: string): string {
 	return `POST:${path}:${Date.now()}:${nonce}`;
 }
 
+function basicAuthorization(username: string, password: string): string {
+	const bytes = new TextEncoder().encode(`${username}:${password}`);
+	let binary = "";
+	for (const byte of bytes) binary += String.fromCharCode(byte);
+	return `Basic ${btoa(binary)}`;
+}
+
 function headers(creds: Credentials, path: string, withBearer: boolean): HeadersInit {
 	const headers: Record<string, string> = {
 		Accept: "*/*",
@@ -23,7 +30,7 @@ function headers(creds: Credentials, path: string, withBearer: boolean): Headers
 		headers["x-platform"] = "iOS";
 		headers["x-device-model"] = "iPhone18,3";
 	} else {
-		headers.Authorization = `Basic ${Buffer.from(`${creds.username}:${creds.password}`).toString("base64")}`;
+		headers.Authorization = basicAuthorization(creds.username, creds.password);
 	}
 	return headers;
 }

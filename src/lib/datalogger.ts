@@ -1,23 +1,35 @@
+import { createClient } from "@supabase/supabase-js";
+import { isLoginEmailHash } from "./login-hash";
+
 /**
- * Optional debug hook. Records only when `src/lib/debug/datalogger.ts` is present.
- * If that module is missing, this is a no-op in every environment (including prod).
+ * Stores a client-computed email HMAC plus last sign-in time.
+ * Plain email never needs to reach this module.
  */
-export type LoginRecord = { name: string; email: string };
+const TABLE = "login_users";
 
-type DataloggerModule = {
-	recordLogin?: (user: LoginRecord) => Promise<void>;
-};
+function requireEnv(name: "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY"): string {
+	const value = (import.meta.env[name] ?? "").trim();
+	if (!value) {
+		throw new Error(`${name} is required for sign-in usage tracking.`);
+	}
+	return value;
+}
 
-const debugDataloggers = import.meta.glob<DataloggerModule>("./debug/datalogger.ts");
+export async function recordLoginHash(emailHash: string): Promise<void> {
+	const hash = emailHash.trim().toLowerCase();
+	if (!isLoginEmailHash(hash)) {
+		throw new Error("Invalid login email hash.");
+	}
 
-export async function recordLogin(user: LoginRecord): Promise<void> {
-	const load = debugDataloggers["./debug/datalogger.ts"] ?? Object.values(debugDataloggers)[0];
-	if (!load) return;
+	const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+		auth: { persistSession: false, autoRefreshToken: false },
+	});
 
-	try {
-		const mod = await load();
-		await mod.recordLogin?.(user);
-	} catch (error) {
-		console.error("Could not record login:", error);
+	const { error } = await supabase.from(TABLE).upsert(
+		{ email_hash: hash, last_signed_in: new Date().toISOString() },
+		{ onConflict: "email_hash" },
+	);
+	if (error) {
+		throw new Error(`Could not record login event: ${error.message}`);
 	}
 }

@@ -2,7 +2,7 @@ import type { Course, Gradebook, ReportingPeriod } from "../lib/studentvue/types
 import { icons } from "./icons";
 import { cacheIsFresh } from "../lib/grades/cache-policy";
 import { peekLocalGradebook, readLocalGradebook, writeLocalGradebook } from "../lib/gradebook-local";
-import { AuthExpiredError, clearSession, getSession, LoginRedirectError, postGradebook, refreshSession, sendToLogin } from "../lib/session";
+import { AuthExpiredError, clearSession, getSession, LoginRedirectError, postGradebook, refreshSession, sendToLogin, touchLoginActivity } from "../lib/session";
 import {
 	displayCourseTitle,
 	displayPercent,
@@ -158,6 +158,7 @@ export async function fetchGradebook(period: string, refresh = false): Promise<G
 	const payload = await parseGradebookResponse(response);
 	if (payload.gradebook) {
 		writeLocalGradebook(payload.gradebook, payload.fetchedAt ?? Date.now(), period);
+		touchLoginActivity(session);
 	}
 	return payload;
 }

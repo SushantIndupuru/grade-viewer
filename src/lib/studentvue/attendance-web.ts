@@ -245,7 +245,7 @@ async function fetchCalendarDay(
 			"Content-Type": "application/json; charset=utf-8",
 			"User-Agent": PAGE_UA,
 			"X-Requested-With": "XMLHttpRequest",
-			Cookie: cookies,
+			...(cookies ? { Cookie: cookies } : {}),
 			Referer: referer,
 			AGU: "0",
 		},

@@ -8,7 +8,7 @@ This project is not affiliated with Edupoint, StudentVUE, Synergy, or any school
 
 ## What it does
 
-- Relays your StudentVUE login and gradebook request through the app server (the browser cannot call StudentVUE directly)
+- Talks to StudentVUE from your browser (libcurl.js + a Wisp relay; no StudentVUE proxy on the app server)
 - Shows courses, weighted categories, assignment impact, documents, mail, and attendance
 - Lets you try what-if scores **in this browser only** — they are never written back to the district
 
@@ -35,6 +35,8 @@ cp .env.example .env.local
 
 Optionally set `PUBLIC_DEFAULT_DISTRICT_URL` in `.env.local` to pre-fill the sign-in form for your district.
 
+`astro dev` serves a same-origin Wisp relay at `/wisp/` (Edupoint hosts on port 443 only). Production needs a separate `wss://` relay in `PUBLIC_WISP_URL`; Vercel cannot host that WebSocket.
+
 ```bash
 npm run dev
 ```
@@ -50,6 +52,8 @@ The app is at [http://localhost:4321](http://localhost:4321).
 ## Deploy
 
 The repo is set up for [Vercel](https://vercel.com) with the Astro server adapter. Optionally set `PUBLIC_DEFAULT_DISTRICT_URL` to your district’s StudentVUE portal, for example `https://your-district.edupoint.com`.
+
+Also set `PUBLIC_WISP_URL`, plus Supabase env vars for anonymous usage counts (see `.env.example`).
 
 To self-host with Node instead of Vercel, switch the adapter in `astro.config.mjs` (`npx astro add node`) and run the Node server Astro generates.
 
