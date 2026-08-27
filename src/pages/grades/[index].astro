@@ -24,16 +24,14 @@ const payload = JSON.stringify({
 	<AppSidebar slot="sidebar" courses={[]} periodQuery={periodQuery} activeIndex={index} />
 	<AppHeader periodQuery={periodQuery} section="grades" />
 
-	<main class="mx-auto flex min-h-[70vh] w-full max-w-3xl flex-1 flex-col px-4 pb-16">
+	<main class="flex min-h-[70vh] w-full min-w-0 flex-1 flex-col">
 		<div id="app">
-			<div class="mt-8" role="status" aria-live="polite">
-				<p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
-					<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-					</svg>
-					Loading course…
-				</p>
+			<div class="space-y-5 p-4 md:p-6" role="status" aria-label="Loading course">
+				<div class="h-[340px] animate-pulse rounded-xl bg-muted/60"></div>
+				<div class="ml-auto h-8 w-36 animate-pulse rounded-md bg-muted/60"></div>
+				<div class="space-y-3">
+					{Array.from({ length: 3 }).map(() => <div class="h-24 animate-pulse rounded-xl border border-border bg-card"></div>)}
+				</div>
 			</div>
 		</div>
 		<script id="bootstrap" type="application/json" set:html={payload} />
@@ -43,15 +41,16 @@ const payload = JSON.stringify({
 <script>
 	import { mountCourseDetail } from '../../components/course-detail';
 	import {
-		courseLoadingHtml,
 		errorHtml,
 		fetchGradebook,
 		fillGradebookChrome,
 		isSessionExpired,
-		loadingHtml,
+		spinnerHtml,
 	} from '../../components/grades-list';
-	import { peekLocalGradebook, readLocalGradebook } from '../../lib/gradebook-local';
-	import type { Course } from '../../lib/studentvue/types';
+	import { gradebookCacheAccount, readLocalGradebook } from '../../lib/gradebook-local';
+	import { gradebookNeedsBackgroundRefresh } from '../../lib/grades/cache-policy';
+	import { getSession, sendToLogin } from '../../lib/session';
+	import type { Course, Gradebook } from '../../lib/studentvue/types';
 
 	const node = document.querySelector('#bootstrap');
 	const app = document.querySelector('#app');
@@ -64,32 +63,89 @@ const payload = JSON.stringify({
 			fetchedAt?: number;
 			refresh?: boolean;
 		};
+		let currentGradebook: Gradebook | null = null;
+		let currentFetchedAt = 0;
+		let currentIndex = data.index;
+		let currentPeriod = data.period ?? '';
+		let destroyCourseDetail: (() => void) | null = null;
+
+		function loadingCourseHtml() {
+			return `<div class="space-y-5 p-4 md:p-6" role="status" aria-live="polite">
+				<div class="flex justify-center"><div class="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">${spinnerHtml()}Loading course…</div></div>
+				<div class="h-[340px] animate-pulse rounded-xl bg-muted/60"></div>
+				<div class="space-y-3">${`<div class="h-24 animate-pulse rounded-xl border border-border bg-card"></div>`.repeat(3)}</div>
+			</div>`;
+		}
+
+		function renderCourse(index: number, gradebook: Gradebook, fetchedAt: number, push = false) {
+			const course = gradebook.courses[index];
+			if (!course) return false;
+			destroyCourseDetail?.();
+			currentIndex = index;
+			currentGradebook = gradebook;
+			currentFetchedAt = fetchedAt;
+			currentPeriod ||= gradebook.reportingPeriod?.index || '';
+			fillGradebookChrome(gradebook, currentPeriod, index);
+			destroyCourseDetail = mountCourseDetail(root, {
+				course,
+				index,
+				period: currentPeriod,
+				fetchedAt,
+			});
+			root.classList.remove('course-content-enter');
+			void (root as HTMLElement).offsetWidth;
+			root.classList.add('course-content-enter');
+			document.title = `${course.title} · Grade Viewer`;
+			if (push) {
+				const query = currentPeriod ? `?period=${encodeURIComponent(currentPeriod)}` : '';
+				history.pushState({ courseIndex: index }, '', `/grades/${index}${query}`);
+			}
+			return true;
+		}
+
+		document.addEventListener('click', (event) => {
+			if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const link = target.closest<HTMLAnchorElement>("#course-nav a[href^='/grades/']");
+			if (!link || !currentGradebook) return;
+			const url = new URL(link.href, location.href);
+			const match = url.pathname.match(/^\/grades\/(\d+)\/?$/);
+			if (!match) return;
+			const nextIndex = Number(match[1]);
+			if (!currentGradebook.courses[nextIndex]) return;
+			event.preventDefault();
+			if (nextIndex !== currentIndex) renderCourse(nextIndex, currentGradebook, currentFetchedAt, true);
+		});
+
+		window.addEventListener('popstate', () => {
+			if (!currentGradebook) return;
+			const match = location.pathname.match(/^\/grades\/(\d+)\/?$/);
+			if (match) renderCourse(Number(match[1]), currentGradebook, currentFetchedAt);
+			else location.reload();
+		});
 
 		async function start() {
-			const period = data.period ?? '';
-			const fresh = !data.refresh ? peekLocalGradebook(period) : null;
-			const previous = readLocalGradebook(period);
+			const period = currentPeriod;
+			const session = await getSession();
+			if (!session) sendToLogin();
+			const account = gradebookCacheAccount(session.creds);
+			const previous = readLocalGradebook(account, period);
+			const fresh = !data.refresh && previous && !gradebookNeedsBackgroundRefresh(previous.fetchedAt) ? previous : null;
 			const cached = fresh ?? previous;
-			const course = cached?.gradebook.courses[data.index] ?? null;
+			const course = cached?.gradebook.courses[currentIndex] ?? null;
 
-			if (cached) {
-				fillGradebookChrome(cached.gradebook, period, data.index, !fresh);
-			}
-
-			if (fresh && course) {
-				mountCourseDetail(root, { ...data, course, fetchedAt: fresh.fetchedAt });
-				return;
-			}
-
+			const hasCachedCourse = Boolean(previous && course);
 			if (previous && course) {
-				root.innerHTML = courseLoadingHtml(course, period);
+				renderCourse(currentIndex, previous.gradebook, previous.fetchedAt);
+				if (fresh) return;
 			} else {
-				root.innerHTML = loadingHtml('Loading course…', false);
+				root.innerHTML = loadingCourseHtml();
 			}
 
 			try {
 				const payload = await fetchGradebook(period, Boolean(data.refresh));
-				const next = payload.gradebook?.courses[data.index];
+				const next = payload.gradebook?.courses[currentIndex];
 				if (!next) {
 					const query = period ? `?period=${encodeURIComponent(period)}` : '';
 					location.replace(`/grades${query}`);
@@ -100,21 +156,16 @@ const payload = JSON.stringify({
 					url.searchParams.delete('refresh');
 					history.replaceState(null, '', `${url.pathname}${url.search}`);
 				}
-				const selected = data.period || payload.gradebook?.reportingPeriod?.index || '';
+				const selected = currentPeriod || payload.gradebook?.reportingPeriod?.index || '';
 				if (payload.gradebook) {
-					fillGradebookChrome(payload.gradebook, selected, data.index);
+					currentPeriod = selected;
+					renderCourse(currentIndex, payload.gradebook, payload.fetchedAt ?? Date.now());
 				}
-				mountCourseDetail(root, {
-					course: next,
-					index: data.index,
-					period: selected,
-					fetchedAt: payload.fetchedAt,
-				});
 			} catch (error) {
 				if (isSessionExpired(error)) return;
-				root.innerHTML = errorHtml(
-					error instanceof Error ? error.message : 'Could not load the gradebook.',
-				);
+				const alert = errorHtml(error instanceof Error ? error.message : 'Could not load the gradebook.');
+				if (hasCachedCourse) root.insertAdjacentHTML('afterbegin', alert);
+				else root.innerHTML = alert;
 			}
 		}
 

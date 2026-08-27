@@ -57,8 +57,22 @@ function activeAssignments(assignments: DraftAssignment[]): DraftAssignment[] {
 	return assignments.filter(countsTowardGrade);
 }
 
+function categoryKey(value: string): string {
+	const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+	return normalized.endsWith("s") ? normalized.slice(0, -1) : normalized;
+}
+
+export function matchGradeCategory(
+	assignmentType: string,
+	categories: Pick<CategorySummary, "type">[],
+): string | null {
+	const exact = categories.find((category) => category.type === assignmentType);
+	if (exact) return exact.type;
+	return categories.find((category) => categoryKey(category.type) === categoryKey(assignmentType))?.type ?? null;
+}
+
 export function calculateCourse(
-	course: Pick<Course, "categories">,
+	course: Pick<Course, "categories"> & Partial<Pick<Course, "assignments">>,
 	assignments: DraftAssignment[],
 ): CourseResult {
 	const graded = activeAssignments(assignments);
@@ -79,18 +93,36 @@ export function calculateCourse(
 		};
 	}
 
-	const grouped = new Map<string, DraftAssignment[]>();
+	const grouped = new Map<string, { earned: number; possible: number }>();
 	for (const assignment of graded) {
-		const key = assignment.type || "Assignment";
-		const list = grouped.get(key) ?? [];
-		list.push(assignment);
-		grouped.set(key, list);
+		const key = (matchGradeCategory(assignment.type || "Assignment", weights) ?? assignment.type) || "Assignment";
+		const points = grouped.get(key) ?? { earned: 0, possible: 0 };
+		grouped.set(key, {
+			earned: points.earned + (assignment.pointsEarned ?? 0),
+			possible: points.possible + possibleTowardAverage(assignment),
+		});
+	}
+
+	// StudentVUE category totals may contain aggregate/hidden work that is absent
+	// from the assignment list. Preserve that fixed baseline in what-if math.
+	const visibleOfficial = new Map<string, { earned: number; possible: number }>();
+	for (const assignment of activeAssignments(toDraft(course.assignments ?? []))) {
+		const key = (matchGradeCategory(assignment.type || "Assignment", weights) ?? assignment.type) || "Assignment";
+		const points = visibleOfficial.get(key) ?? { earned: 0, possible: 0 };
+		visibleOfficial.set(key, {
+			earned: points.earned + (assignment.pointsEarned ?? 0),
+			possible: points.possible + possibleTowardAverage(assignment),
+		});
 	}
 
 	const categories: CategoryResult[] = weights.map((category) => {
-		const items = grouped.get(category.type) ?? [];
-		const catEarned = items.reduce((sum, assignment) => sum + (assignment.pointsEarned ?? 0), 0);
-		const catPossible = items.reduce((sum, assignment) => sum + possibleTowardAverage(assignment), 0);
+		const draftPoints = grouped.get(category.type) ?? { earned: 0, possible: 0 };
+		const visiblePoints = visibleOfficial.get(category.type) ?? { earned: 0, possible: 0 };
+		const hasAggregate = Number.isFinite(category.points) && Number.isFinite(category.pointsPossible);
+		const hiddenEarned = hasAggregate ? category.points - visiblePoints.earned : 0;
+		const hiddenPossible = hasAggregate ? category.pointsPossible - visiblePoints.possible : 0;
+		const catEarned = draftPoints.earned + hiddenEarned;
+		const catPossible = draftPoints.possible + hiddenPossible;
 		const counted = catPossible > 0;
 		return {
 			type: category.type,

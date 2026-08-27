@@ -2,7 +2,7 @@ import type { Mailbox, MailFolder, MailMessage } from "../lib/studentvue/types";
 import { icons } from "./icons";
 import { cacheIsFresh } from "../lib/grades/cache-policy";
 import { peekLocalMail, readLocalMail, writeLocalMail } from "../lib/mail-local";
-import { peekLocalGradebook, readLocalGradebook } from "../lib/gradebook-local";
+import { gradebookCacheAccount, peekLocalGradebook, readLocalGradebook } from "../lib/gradebook-local";
 import { formatDateTitle, formatShortDate, formatUpdatedAt } from "../lib/grades/display";
 import { DEFAULT_FOLDERS, folderLabel, folderTypeForName, isTrashFolder, TRASH_FOLDER } from "../lib/mail-folders";
 import {
@@ -153,8 +153,11 @@ function wrapMailBody(html: string): string {
 	</style></head><body>${html}</body></html>`;
 }
 
-function fillCachedCourses(): void {
-	const local = peekLocalGradebook("") ?? readLocalGradebook("");
+async function fillCachedCourses(): Promise<void> {
+	const session = await getSession();
+	if (!session) return;
+	const account = gradebookCacheAccount(session.creds);
+	const local = peekLocalGradebook(account, "") ?? readLocalGradebook(account, "");
 	if (!local) return;
 	const selected = local.period || local.gradebook.reportingPeriod?.index || "";
 	fillCourseNav(local.gradebook.courses, selected);
@@ -557,7 +560,7 @@ function mountMailBody(host: Element, html: string): void {
 }
 
 export function mountMailList(root: Element, data: Bootstrap): void {
-	fillCachedCourses();
+	void fillCachedCourses();
 	let folder = data.folder?.trim() || "Inbox";
 	let mailbox: Mailbox = { folders: [], messages: [] };
 	let fetchedAt = 0;

@@ -281,12 +281,6 @@ export async function getWebAttendance(creds: Credentials): Promise<Attendance> 
 	}
 	const cookies = mergeCookies("", page);
 	const marked = markedDaysFromPage(html);
-	console.log("attendance.web", {
-		page: page.status,
-		html: html.length,
-		calendar: html.includes("StudentAttendanceData"),
-		marked: marked.length,
-	});
 	const absences: AttendanceDay[] = [];
 	for (let i = 0; i < marked.length; i += 4) {
 		const chunk = marked.slice(i, i + 4);

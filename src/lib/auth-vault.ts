@@ -5,6 +5,8 @@ const DB_VERSION = 1;
 const STORE = "kv";
 const KEY_ID = "aes-key";
 const VAULT_ID = "session";
+const REMEMBER_MARKER = "gradeviewer.remembered-signin";
+const SESSION_MARKER = "gradeviewer.session-signin";
 
 export interface StoredSession {
 	creds: Credentials;
@@ -12,7 +14,43 @@ export interface StoredSession {
 }
 
 function canUseVault(): boolean {
-	return typeof indexedDB !== "undefined" && typeof crypto?.subtle !== "undefined";
+	return typeof window !== "undefined" && typeof indexedDB !== "undefined" && typeof crypto !== "undefined" && typeof crypto.subtle !== "undefined";
+}
+
+function markerStorage(kind: "local" | "session"): Storage | null {
+	if (typeof window === "undefined") return null;
+	try {
+		return kind === "local" ? window.localStorage : window.sessionStorage;
+	} catch {
+		return null;
+	}
+}
+
+export function isRememberedVault(): boolean {
+	return markerStorage("local")?.getItem(REMEMBER_MARKER) === "1";
+}
+
+function hasSessionVault(): boolean {
+	return isRememberedVault() || markerStorage("session")?.getItem(SESSION_MARKER) === "1";
+
+}
+
+function setVaultLifetime(remember: boolean): void {
+	const local = markerStorage("local");
+	const session = markerStorage("session");
+	if (remember) {
+		local?.setItem(REMEMBER_MARKER, "1");
+		session?.removeItem(SESSION_MARKER);
+	} else {
+		local?.removeItem(REMEMBER_MARKER);
+		session?.setItem(SESSION_MARKER, "1");
+	}
+
+}
+
+function clearVaultLifetime(): void {
+	markerStorage("local")?.removeItem(REMEMBER_MARKER);
+	markerStorage("session")?.removeItem(SESSION_MARKER);
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -76,6 +114,10 @@ function isSession(value: unknown): value is StoredSession {
 
 export async function readVault(): Promise<StoredSession | null> {
 	if (!canUseVault()) return null;
+	if (!hasSessionVault()) {
+		await clearVault();
+		return null;
+	}
 	try {
 		const db = await openDb();
 		const [key, packed] = await Promise.all([
@@ -93,7 +135,7 @@ export async function readVault(): Promise<StoredSession | null> {
 	}
 }
 
-export async function writeVault(session: StoredSession): Promise<void> {
+export async function writeVault(session: StoredSession, remember = false): Promise<void> {
 	if (!canUseVault()) {
 		throw new Error("This browser cannot store an encrypted login.");
 	}
@@ -108,9 +150,11 @@ export async function writeVault(session: StoredSession): Promise<void> {
 		),
 	);
 	await idbSet(db, VAULT_ID, { iv: iv.slice(), data });
+	setVaultLifetime(remember);
 }
 
 export async function clearVault(): Promise<void> {
+	clearVaultLifetime();
 	if (!canUseVault()) return;
 	try {
 		const db = await openDb();

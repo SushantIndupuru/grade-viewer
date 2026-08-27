@@ -5,7 +5,7 @@ interface Props {
 	courses?: { title: string }[];
 	periodQuery?: string;
 	activeIndex?: number;
-	section?: 'grades' | 'documents' | 'attendance' | 'mail';
+	section?: 'grades' | 'documents' | 'attendance' | 'mail' | 'student-info';
 }
 
 const { courses = [], periodQuery = '', activeIndex, section = 'grades' } = Astro.props;
@@ -18,40 +18,17 @@ const itemClass = (active: boolean) => [
 ];
 ---
 
-<aside class="sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r border-border bg-background md:flex" aria-label="App">
+<aside class="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out md:flex" data-app-sidebar aria-label="Student navigation">
 	<div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3">
 		<a
 			href={`/grades${periodQuery}`}
 			data-grades-home
-			class="mb-3 inline-flex size-9 items-center justify-center rounded-md no-underline hover:bg-muted/60"
+			class="mb-3 flex h-8 w-full items-center px-2 text-xl font-bold tracking-tight text-sidebar-foreground no-underline"
 			aria-label="Grade Viewer"
 		>
-			<img src="/favicon.svg" alt="" class="size-7 rounded" width="28" height="28" />
+			<img src="/favicon.svg" alt="" class="size-6 shrink-0 rounded" width="24" height="24" /><span class="ml-2" data-sidebar-full>gradeviewer</span>
 		</a>
 		<nav class="flex min-h-0 flex-1 flex-col gap-0.5" aria-label="Sections">
-			<a
-				href="/mail"
-				class:list={itemClass(section === 'mail')}
-				aria-current={section === 'mail' ? 'page' : undefined}
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0" aria-hidden="true">
-					<path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path>
-				</svg>
-				Mail
-			</a>
-			<a
-				href="/attendance"
-				class:list={itemClass(section === 'attendance')}
-				aria-current={section === 'attendance' ? 'page' : undefined}
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0" aria-hidden="true">
-					<path d="M8 2v4"></path>
-					<path d="M16 2v4"></path>
-					<rect width="18" height="18" x="3" y="4" rx="2"></rect>
-					<path d="M3 10h18"></path>
-				</svg>
-				Attendance
-			</a>
 			<div class="min-h-0">
 				<a
 					href={`/grades${periodQuery}`}
@@ -64,9 +41,9 @@ const itemClass = (active: boolean) => [
 						<path d="M8 11h8"></path>
 						<path d="M8 7h6"></path>
 					</svg>
-					Grades
+					<span data-sidebar-label>Grades</span>
 				</a>
-				<div id="course-nav" class="mt-0.5 ml-4 border-l border-border pl-1.5" aria-label="Classes">
+				<div id="course-nav" class="mt-0.5 ml-4 border-l border-border pl-1.5" data-sidebar-label aria-label="Classes">
 					<ul class="flex flex-col gap-px">
 						{courses.map((course, index) => {
 							const title = displayCourseTitle(course.title);
@@ -92,6 +69,14 @@ const itemClass = (active: boolean) => [
 					</ul>
 				</div>
 			</div>
+			<a href="/attendance" class:list={itemClass(section === 'attendance')} aria-current={section === 'attendance' ? 'page' : undefined}>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4 shrink-0" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+				<span data-sidebar-label>Attendance</span>
+			</a>
+			<a href="/mail" class:list={itemClass(section === 'mail')} aria-current={section === 'mail' ? 'page' : undefined}>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4 shrink-0" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path></svg>
+				<span data-sidebar-label>Mail</span>
+			</a>
 			<a
 				href="/documents"
 				class:list={itemClass(section === 'documents')}
@@ -104,8 +89,27 @@ const itemClass = (active: boolean) => [
 					<path d="M16 13H8"></path>
 					<path d="M16 17H8"></path>
 				</svg>
-				Documents
+				<span data-sidebar-label>Documents</span>
 			</a>
 		</nav>
 	</div>
+	<footer class="flex flex-col gap-2 p-2">
+		<details class="group/account relative">
+			<summary class="flex w-full cursor-pointer list-none items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+				<span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted"><svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg></span>
+				<p class="min-w-0 flex-1 truncate text-left text-xs font-medium leading-tight" data-student-name data-sidebar-label>Student</p>
+				<svg class="ml-auto size-4 opacity-60 transition-transform group-open/account:rotate-180" data-sidebar-label xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"></path></svg>
+			</summary>
+			<div class="absolute bottom-[calc(100%+0.375rem)] left-0 z-50 w-52 rounded-md border border-border bg-card p-1 text-card-foreground shadow-md">
+				<p class="px-2 py-1.5 text-xs font-medium">Account</p>
+				<div class="my-1 h-px bg-border"></div>
+				<a href="/student-info" class="flex h-8 items-center gap-2 rounded-sm px-2 text-sm no-underline hover:bg-muted"><svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>Student Info</a>
+				<p class="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">Appearance</p>
+				<button type="button" class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted" data-theme-choice="dark"><svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Dark mode<svg class="ml-auto hidden size-4" data-theme-check="dark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"></path></svg></button>
+				<button type="button" class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted" data-theme-choice="light"><svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41-1.41"></path></svg>Light mode<svg class="ml-auto hidden size-4" data-theme-check="light" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"></path></svg></button>
+				<div class="my-1 h-px bg-border"></div>
+				<button class="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted" type="button" data-signout><svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg>Log out</button>
+			</div>
+		</details>
+	</footer>
 </aside>

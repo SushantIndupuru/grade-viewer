@@ -96,10 +96,7 @@ export async function processRequest(
 
 	const xml = await response.text();
 	if (!response.ok) {
-		throw new StudentVueError(
-			`StudentVUE returned HTTP ${response.status}${xml ? `: ${xml.slice(0, 180)}` : ""}`,
-			response.status,
-		);
+		throw new StudentVueError(`StudentVUE returned HTTP ${response.status}.`, response.status);
 	}
 
 	const resultRaw =

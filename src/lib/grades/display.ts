@@ -9,7 +9,7 @@ import {
 
 export const CATEGORY_PALETTE = [
 	{ dot: "bg-red-500", badge: "bg-red-100 text-red-900 dark:bg-red-900/50 dark:text-red-100" },
-	{ dot: "bg-lime-600", badge: "bg-lime-100 text-lime-900 dark:bg-lime-900/50 dark:text-lime-100" },
+	{ dot: "bg-amber-500", badge: "bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100" },
 	{ dot: "bg-sky-500", badge: "bg-sky-100 text-sky-900 dark:bg-sky-900/50 dark:text-sky-100" },
 	{ dot: "bg-violet-500", badge: "bg-violet-100 text-violet-900 dark:bg-violet-900/50 dark:text-violet-100" },
 	{ dot: "bg-rose-500", badge: "bg-rose-100 text-rose-900 dark:bg-rose-900/50 dark:text-rose-100" },
@@ -58,16 +58,16 @@ export function formatGrade(value: number | null, digits = 2): string {
 }
 
 export function displayPercent(course: Course): number | null {
-	if (officialLetter(course)) return course.officialPercent;
+	if (Number.isFinite(course.officialPercent)) return course.officialPercent;
 	return calculateCourse(course, toDraft(course.assignments)).percent;
 }
 
 export function progressFillClass(percent: number | null, extraCredit = false): string {
-	if (extraCredit) return "bg-indigo-500";
-	if (percent == null || Number.isNaN(percent)) return "bg-neutral-400";
-	if (percent >= 90) return "bg-green-600";
-	if (percent >= 80) return "bg-yellow-500";
-	return "bg-red-500";
+	if (extraCredit) return "bg-indigo-700 dark:bg-indigo-600";
+	if (percent == null || Number.isNaN(percent)) return "bg-neutral-500";
+	if (percent >= 90) return "bg-emerald-700 dark:bg-emerald-600";
+	if (percent >= 80) return "bg-amber-600 dark:bg-amber-500";
+	return "bg-rose-700 dark:bg-rose-600";
 }
 
 export function progressTranslate(percent: number | null): string {

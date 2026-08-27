@@ -2,7 +2,7 @@ import type { Attendance, AttendanceDay, AttendanceKind } from "../lib/studentvu
 import { icons } from "./icons";
 import { cacheIsFresh } from "../lib/grades/cache-policy";
 import { peekLocalAttendance, readLocalAttendance, writeLocalAttendance } from "../lib/attendance-local";
-import { peekLocalGradebook, readLocalGradebook } from "../lib/gradebook-local";
+import { gradebookCacheAccount, peekLocalGradebook, readLocalGradebook } from "../lib/gradebook-local";
 import { formatUpdatedAt } from "../lib/grades/display";
 import {
 	AuthExpiredError,
@@ -92,8 +92,11 @@ function escapeHtml(value: string): string {
 		.replaceAll('"', "&quot;");
 }
 
-function fillCachedCourses(): void {
-	const local = peekLocalGradebook("") ?? readLocalGradebook("");
+async function fillCachedCourses(): Promise<void> {
+	const session = await getSession();
+	if (!session) return;
+	const account = gradebookCacheAccount(session.creds);
+	const local = peekLocalGradebook(account, "") ?? readLocalGradebook(account, "");
 	if (!local) return;
 	const selected = local.period || local.gradebook.reportingPeriod?.index || "";
 	fillCourseNav(local.gradebook.courses, selected);
@@ -500,7 +503,7 @@ function renderView(
 }
 
 export function mountAttendanceList(root: Element, data: Bootstrap): void {
-	fillCachedCourses();
+	void fillCachedCourses();
 	let current: Attendance | null = data.attendance;
 	let fetchedAt = data.fetchedAt;
 	let warning = data.error ?? "";

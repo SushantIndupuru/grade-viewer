@@ -2,7 +2,7 @@ import type { StudentDocument } from "../lib/studentvue/types";
 import { icons } from "./icons";
 import { cacheIsFresh } from "../lib/grades/cache-policy";
 import { peekLocalDocuments, readLocalDocuments, writeLocalDocuments } from "../lib/documents-local";
-import { peekLocalGradebook, readLocalGradebook } from "../lib/gradebook-local";
+import { gradebookCacheAccount, peekLocalGradebook, readLocalGradebook } from "../lib/gradebook-local";
 import { categoryStyle, formatDateTitle, formatShortDate, formatUpdatedAt, parseDate } from "../lib/grades/display";
 import {
 	AuthExpiredError,
@@ -71,8 +71,11 @@ function typeBadge(type: string, types: string[]): string {
 	return `<span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs ${style.badge}">${escapeHtml(type)}</span>`;
 }
 
-function fillCachedCourses(): void {
-	const local = peekLocalGradebook("") ?? readLocalGradebook("");
+async function fillCachedCourses(): Promise<void> {
+	const session = await getSession();
+	if (!session) return;
+	const account = gradebookCacheAccount(session.creds);
+	const local = peekLocalGradebook(account, "") ?? readLocalGradebook(account, "");
 	if (!local) return;
 	const selected = local.period || local.gradebook.reportingPeriod?.index || "";
 	fillCourseNav(local.gradebook.courses, selected);
@@ -235,7 +238,7 @@ function renderList(documents: StudentDocument[], fetchedAt: number, filter: str
 }
 
 export function mountDocumentsList(root: Element, data: Bootstrap): void {
-	fillCachedCourses();
+	void fillCachedCourses();
 	let filter = "all";
 	let current: StudentDocument[] = [];
 	let fetchedAt = 0;

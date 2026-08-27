@@ -35,6 +35,23 @@ function headers(creds: Credentials, path: string, withBearer: boolean): Headers
 	return headers;
 }
 
+function apiError(json: Record<string, unknown>, status: number): StudentVueError {
+	const raw = json.error;
+	const error = raw && typeof raw === "object" ? (raw as { code?: unknown; message?: unknown }) : {};
+	const message = typeof error.message === "string" ? error.message : "";
+	const code =
+		typeof error.code === "string" && /^[a-z0-9][a-z0-9._-]{0,31}$/i.test(error.code)
+			? error.code
+			: "";
+	if (/invalid|incorrect|unauthorized|credential|password|user ?name/i.test(message)) {
+		return new StudentVueError("StudentVUE did not accept those credentials.", 401);
+	}
+	return new StudentVueError(
+		code ? `StudentVUE rejected the request (${code}).` : "StudentVUE rejected the request.",
+		status,
+	);
+}
+
 async function mobilePost<T>(
 	creds: Credentials,
 	path: string,
@@ -58,14 +75,10 @@ async function mobilePost<T>(
 	}
 
 	if (json && typeof json.error === "object" && json.error) {
-		const err = json.error as { message?: string; code?: string };
-		throw new StudentVueError(err.message || `StudentVUE error ${err.code ?? response.status}`, response.status);
+		throw apiError(json, response.status);
 	}
 	if (!response.ok) {
-		throw new StudentVueError(
-			`StudentVUE returned HTTP ${response.status}${text ? `: ${text.slice(0, 180)}` : ""}`,
-			response.status,
-		);
+		throw new StudentVueError(`StudentVUE returned HTTP ${response.status}.`, response.status);
 	}
 	return (json ?? {}) as T;
 }
@@ -302,4 +315,3 @@ export async function generateAuthToken(creds: Credentials): Promise<string> {
 	}
 	return token;
 }
-

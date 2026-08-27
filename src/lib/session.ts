@@ -1,5 +1,5 @@
 import { clearLocalAttendance } from "./attendance-local";
-import { clearVault, readVault, writeVault, type StoredSession } from "./auth-vault";
+import { clearVault, isRememberedVault, readVault, writeVault, type StoredSession } from "./auth-vault";
 import { clearLocalDocuments } from "./documents-local";
 import { clearLocalGradebook } from "./gradebook-local";
 import { hashLoginEmail } from "./login-hash";
@@ -17,9 +17,9 @@ export async function getSession(): Promise<Session | null> {
 	return memory;
 }
 
-export async function saveSession(session: Session): Promise<void> {
+export async function saveSession(session: Session, remember = isRememberedVault()): Promise<void> {
 	memory = session;
-	await writeVault(session);
+	await writeVault(session, remember);
 }
 
 export async function clearSession(): Promise<void> {
@@ -85,11 +85,15 @@ export async function requireSession(): Promise<Session | null> {
 }
 
 export function applyStudentHeader(session: Session): void {
-	const line = document.querySelector("[data-student-line]");
-	if (!line) return;
 	const name = session.student?.name || session.creds.username;
 	const school = session.student?.school;
-	line.textContent = school ? `${name} · ${school}` : name;
+	const grade = session.student?.grade;
+	const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "ST";
+	for (const node of document.querySelectorAll("[data-student-line]")) node.textContent = school ? `${name} · ${school}` : name;
+	for (const node of document.querySelectorAll("[data-student-name], [data-profile-name]")) node.textContent = name;
+	for (const node of document.querySelectorAll("[data-student-initials]")) node.textContent = initials;
+	for (const node of document.querySelectorAll("[data-profile-school]")) node.textContent = school || "School unavailable";
+	for (const node of document.querySelectorAll("[data-profile-grade]")) node.textContent = grade ? `Grade ${grade}` : "";
 }
 
 export class AuthExpiredError extends Error {
@@ -228,12 +232,12 @@ export async function signIn(input: {
 	username: string;
 	password: string;
 	districtUrl: string;
-}): Promise<Session> {
+}, remember = false): Promise<Session> {
 	const result = await postLogin(input);
 	const session = sessionFromLogin(input, result);
 	const email = sessionEmail(session);
 	await reportLoginEvent(email);
-	await saveSession(session);
+	await saveSession(session, remember);
 	return session;
 }
 
@@ -253,6 +257,11 @@ export async function refreshSession(session: Session): Promise<Session> {
 
 export async function signOut(): Promise<void> {
 	await clearSession();
+}
+
+/** Removes the persisted encrypted session while keeping the current tab usable. */
+export async function forgetSavedSignIn(): Promise<void> {
+	await clearVault();
 }
 
 export async function postGradebook(

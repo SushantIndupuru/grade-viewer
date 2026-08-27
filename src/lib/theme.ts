@@ -45,6 +45,12 @@ function syncToggleButtons(): void {
 		button.setAttribute("aria-label", label);
 		button.setAttribute("title", label);
 	}
+	for (const button of document.querySelectorAll<HTMLElement>("[data-theme-choice]")) {
+		button.setAttribute("aria-pressed", String(button.dataset.themeChoice === (dark ? "dark" : "light")));
+	}
+	for (const check of document.querySelectorAll<HTMLElement>("[data-theme-check]")) {
+		check.classList.toggle("hidden", check.dataset.themeCheck !== (dark ? "dark" : "light"));
+	}
 }
 
 let bound = false;
@@ -57,7 +63,15 @@ export function bindThemeControls(): void {
 
 	document.addEventListener("click", (event) => {
 		const target = event.target;
-		if (!(target instanceof Element) || !target.closest("[data-theme-toggle]")) return;
+		if (!(target instanceof Element)) return;
+		const choice = target.closest<HTMLElement>("[data-theme-choice]")?.dataset.themeChoice;
+		if (isTheme(choice)) {
+			writeThemeCookie(choice);
+			applyTheme(choice);
+			syncToggleButtons();
+			return;
+		}
+		if (!target.closest("[data-theme-toggle]")) return;
 		toggleTheme();
 		syncToggleButtons();
 	});

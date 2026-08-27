@@ -1,4 +1,5 @@
 import { libcurl } from "libcurl.js/bundled";
+import { studentVueRequestHeaders } from "./request-headers";
 
 let session:
 	| { close(): void; fetch(url: string, init: RequestInit): Promise<Response> }
@@ -20,43 +21,6 @@ type WorkerRequest = {
 		credentials?: RequestCredentials;
 	};
 };
-
-const FORBIDDEN_REQUEST_HEADERS = new Set([
-	"accept-charset",
-	"accept-encoding",
-	"access-control-request-headers",
-	"access-control-request-method",
-	"connection",
-	"content-length",
-	"cookie",
-	"cookie2",
-	"date",
-	"dnt",
-	"expect",
-	"host",
-	"keep-alive",
-	"origin",
-	"referer",
-	"set-cookie",
-	"te",
-	"trailer",
-	"transfer-encoding",
-	"upgrade",
-	"via",
-	"user-agent",
-]);
-
-function requestHeaders(entries: [string, string][] | undefined): Record<string, string> {
-	const headers: Record<string, string> = {};
-	for (const [name, value] of entries ?? []) {
-		const key = name.toLowerCase();
-		if (FORBIDDEN_REQUEST_HEADERS.has(key) || key.startsWith("proxy-") || key.startsWith("sec-")) {
-			continue;
-		}
-		headers[name] = value;
-	}
-	return headers;
-}
 
 function waitForLibcurlCookieFlush(): Promise<void> {
 	// libcurl.js 0.7.1 defers curl_easy_cleanup by 1 ms. Cleanup writes the
@@ -94,6 +58,24 @@ function reportWorkerFailure(id: number | undefined, message: string): void {
 		? "StudentVUE transport worker stopped while processing the public response."
 		: "StudentVUE transport worker failed.";
 	self.postMessage({ id, error });
+}
+
+function describeRequestFailure(message: string, causeType: string): string {
+	if (message.startsWith("StudentVUE ") || message.startsWith("Browser ")) return message;
+	if (/invalid binarytype/i.test(message)) {
+		return "StudentVUE transport received an unsupported relay frame type.";
+	}
+	if (/forbidden header|failed to construct ['"]?request/i.test(message)) {
+		return "Browser rejected the transport request configuration.";
+	}
+	if (/redirect/i.test(message)) return "StudentVUE redirect rejected by HTTPS-only diagnostic.";
+
+	const code = message.match(/error code (\d+)/i)?.[1];
+	if (code === "7") return "Could not connect to the StudentVUE relay.";
+	if (code === "28") return "StudentVUE connection timed out.";
+	if (code === "60") return "StudentVUE TLS certificate could not be verified.";
+	if (code) return "Encrypted StudentVUE request failed.";
+	return `Encrypted StudentVUE request failed (${causeType || "unknown"}).`;
 }
 
 self.addEventListener("error", (event) => {
@@ -136,7 +118,7 @@ self.onmessage = async ({ data }: MessageEvent) => {
 		const init = request.init ?? {};
 		const response = await session.fetch(url, {
 			method: init.method,
-			headers: requestHeaders(init.headers),
+			headers: studentVueRequestHeaders(init.headers),
 			body: init.body,
 			redirect: init.redirect,
 			credentials: init.credentials,
@@ -163,19 +145,7 @@ self.onmessage = async ({ data }: MessageEvent) => {
 			cause && typeof cause === "object" && "constructor" in cause
 				? (cause as { constructor?: { name?: string } }).constructor?.name
 				: typeof cause;
-		const code = message.match(/error code (\d+)/i)?.[1];
-		const error =
-			message.startsWith("StudentVUE ") || message.startsWith("Browser ")
-				? message
-				: /invalid binarytype/i.test(message)
-					? "StudentVUE transport received an unsupported relay frame type."
-					: /forbidden header|failed to construct ['"]?request/i.test(message)
-						? "Browser rejected the transport request configuration."
-						: /redirect/i.test(message)
-							? "StudentVUE redirect rejected by HTTPS-only diagnostic."
-							: code
-								? `Encrypted StudentVUE request failed (libcurl error ${code}).`
-								: `Encrypted StudentVUE request failed (${causeType || "unknown"}).`;
+		const error = describeRequestFailure(message, causeType || "unknown");
 		self.postMessage({ id: request.id, error });
 	} finally {
 		activeRequestId = undefined;

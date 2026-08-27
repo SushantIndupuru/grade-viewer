@@ -16,8 +16,8 @@ const districtUrl = defaultDistrictUrl();
 					<ThemeToggle />
 				</div>
 				<p class="mt-2 text-sm text-muted-foreground">
-					Sign in with your StudentVUE username and password. Your encrypted login stays on this
-					device.
+					Sign in with your StudentVUE username and password. Remember Me is optional and stores
+					your login encrypted on this device.
 				</p>
 				<p
 					id="signin-error"
@@ -33,6 +33,14 @@ const districtUrl = defaultDistrictUrl();
 						autocomplete="username"
 						required
 					/>
+
+					<label class="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm" for="remember">
+						<span class="relative box-content size-4 shrink-0">
+							<input id="remember" name="remember" type="checkbox" checked class="peer box-content size-4 shrink-0 appearance-none rounded-[3px] border border-primary bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 checked:bg-primary" />
+							<svg class="pointer-events-none absolute inset-0 hidden size-4 stroke-primary-foreground peer-checked:block" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
+						</span>
+						<span class="font-medium">Remember Me</span>
+					</label>
 
 					<label class="mt-3 block text-sm text-muted-foreground" for="password">Password</label>
 					<input
@@ -129,7 +137,7 @@ const districtUrl = defaultDistrictUrl();
 				username: String(data.get('username') ?? '').trim(),
 				password: String(data.get('password') ?? ''),
 				districtUrl: String(data.get('districtUrl') ?? ''),
-			});
+			}, data.get('remember') === 'on');
 			const next = new URLSearchParams(location.search).get('next');
 			location.assign(safeLoginNext(next));
 		} catch (error) {

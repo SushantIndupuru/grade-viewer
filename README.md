@@ -35,7 +35,7 @@ cp .env.example .env.local
 
 Optionally set `PUBLIC_DEFAULT_DISTRICT_URL` in `.env.local` to pre-fill the sign-in form for your district.
 
-`astro dev` serves a same-origin Wisp relay at `/wisp/` (Edupoint hosts on port 443 only). Production needs a separate `wss://` relay in `PUBLIC_WISP_URL`; Vercel cannot host that WebSocket.
+`astro dev` serves a same-origin Wisp relay at `/wisp/` (Edupoint hosts on port 443 only). Production needs a separate `wss://` relay in `PUBLIC_WISP_URL_2`; Vercel cannot host that WebSocket. `PUBLIC_WISP_URL` is the legacy Oracle VM setting and is intentionally not used as a fallback.
 
 ```bash
 npm run dev
@@ -53,7 +53,15 @@ The app is at [http://localhost:4321](http://localhost:4321).
 
 The repo is set up for [Vercel](https://vercel.com) with the Astro server adapter. Optionally set `PUBLIC_DEFAULT_DISTRICT_URL` to your district’s StudentVUE portal, for example `https://your-district.edupoint.com`.
 
-Also set `PUBLIC_WISP_URL`, plus Supabase env vars for anonymous usage counts (see `.env.example`).
+Set these Vercel environment variables for the browser-side StudentVUE flow:
+
+```env
+PUBLIC_STUDENTVUE_TRANSPORT=libcurl
+PUBLIC_STUDENTVUE_AUTH=mobile-rest
+PUBLIC_WISP_URL_2=wss://your-heroku-relay.herokuapp.com/
+```
+
+The relay URL is public browser configuration: do not put credentials or private tokens in it. Also set the Supabase variables used for anonymous usage counts (see `.env.example`).
 
 To self-host with Node instead of Vercel, switch the adapter in `astro.config.mjs` (`npx astro add node`) and run the Node server Astro generates.
 

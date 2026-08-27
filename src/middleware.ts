@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { clearAuth } from "./lib/auth";
 
 function wispConnectSrc(): string[] {
-	const raw = (import.meta.env.PUBLIC_WISP_URL ?? "").trim();
+	const raw = (import.meta.env.PUBLIC_WISP_URL_2 ?? "").trim();
 	if (!raw) return [];
 	try {
 		return [new URL(raw).origin];

@@ -1,16 +1,20 @@
 import type { Course, Gradebook, ReportingPeriod } from "../lib/studentvue/types";
 import { icons } from "./icons";
-import { cacheIsFresh } from "../lib/grades/cache-policy";
-import { peekLocalGradebook, readLocalGradebook, writeLocalGradebook } from "../lib/gradebook-local";
+import { gradebookNeedsBackgroundRefresh } from "../lib/grades/cache-policy";
+import {
+	gradebookCacheAccount,
+	peekLocalGradebook,
+	readLocalGradebook,
+	writeLocalGradebook,
+	type GradebookCacheAccount,
+} from "../lib/gradebook-local";
 import { AuthExpiredError, clearSession, getSession, LoginRedirectError, postGradebook, refreshSession, sendToLogin, touchLoginActivity } from "../lib/session";
 import {
 	displayCourseTitle,
 	displayPercent,
 	formatGrade,
-	formatUpdatedAt,
 	officialLetter,
 	progressFillClass,
-	progressTranslate,
 } from "../lib/grades/display";
 
 interface Bootstrap {
@@ -52,13 +56,12 @@ export function loadingHtml(message: string, showSkeleton = true): string {
 		<div class="mt-2 h-1.5 w-36 rounded-sm bg-muted"></div>
 	</li>`.repeat(6)}</ol>`
 		: "";
-	return `<div class="mt-8" role="status" aria-live="polite">
-		<p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+	return `<div class="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center px-4" role="status" aria-live="polite">
+		<p class="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
 			${spinnerHtml()}
 			${escapeHtml(message)}
 		</p>
-		${skeleton}
-	</div>`;
+	</div>${skeleton}`;
 }
 
 export function courseLoadingHtml(course: { title: string }, period = ""): string {
@@ -127,15 +130,15 @@ async function parseGradebookResponse(response: Response): Promise<GradebookPayl
 }
 
 export async function fetchGradebook(period: string, refresh = false): Promise<GradebookPayload> {
+	let session = await getSession();
+	if (!session) redirectToLogin();
+	const account = gradebookCacheAccount(session.creds);
 	if (!refresh) {
-		const local = peekLocalGradebook(period);
+		const local = peekLocalGradebook(account, period);
 		if (local) {
 			return { gradebook: local.gradebook, fetchedAt: local.fetchedAt };
 		}
 	}
-
-	let session = await getSession();
-	if (!session) redirectToLogin();
 
 	let response = await postGradebook(session, period, refresh);
 	if (response.status === 401) {
@@ -156,8 +159,8 @@ export async function fetchGradebook(period: string, refresh = false): Promise<G
 	}
 
 	const payload = await parseGradebookResponse(response);
-	if (payload.gradebook) {
-		writeLocalGradebook(payload.gradebook, payload.fetchedAt ?? Date.now(), period);
+	if (payload.gradebook?.courses.length) {
+		writeLocalGradebook(account, payload.gradebook, payload.fetchedAt ?? Date.now(), period);
 		touchLoginActivity(session);
 	}
 	return payload;
@@ -218,32 +221,79 @@ export function fillGradebookChrome(
 	loading = false,
 ): string {
 	const selected = period || gradebook.reportingPeriod?.index || "";
-	fillPeriodSelect(gradebook.reportingPeriods, selected);
 	fillCourseNav(gradebook.courses, selected, activeIndex, loading);
+	const title = document.querySelector<HTMLElement>("[data-page-title]");
+	const grade = document.querySelector<HTMLElement>("[data-page-grade]");
+	const actions = document.querySelector<HTMLElement>("[data-header-actions]");
+	if (title) title.textContent = activeIndex == null ? "Grades" : displayCourseTitle(gradebook.courses[activeIndex]?.title ?? "Grades");
+	if (grade) {
+		const course = activeIndex == null ? null : gradebook.courses[activeIndex];
+		grade.textContent = course ? `${formatGrade(displayPercent(course))}${officialLetter(course) ? ` (${officialLetter(course)})` : ""}` : "";
+		grade.toggleAttribute("hidden", !course);
+	}
+	if (actions) actions.classList.toggle("hidden", activeIndex != null);
+	fillCommandSearch(gradebook, selected, activeIndex);
 	const home = document.querySelector<HTMLAnchorElement>("header a[href^='/grades']");
 	if (home) home.href = selected ? `/grades?period=${encodeURIComponent(selected)}` : "/grades";
 	return selected;
 }
 
-function courseGradeHtml(course: Course, loading: boolean): string {
-	if (loading) {
-		return `<div class="flex items-center justify-end sm:min-w-[9rem]">
-			<span class="inline-flex items-center text-muted-foreground" aria-hidden="true">
-				${spinnerHtml()}
-			</span>
-		</div>`;
+function fillCommandSearch(gradebook: Gradebook, period: string, activeIndex?: number): void {
+	const trigger = document.querySelector<HTMLButtonElement>("[data-command-trigger]");
+	const dialog = document.querySelector<HTMLElement>("[data-command-dialog]");
+	const input = document.querySelector<HTMLInputElement>("[data-command-input]");
+	const results = document.querySelector<HTMLElement>("[data-command-results]");
+	if (!trigger || !dialog || !input || !results) return;
+	trigger.classList.toggle("hidden", activeIndex != null);
+	trigger.classList.toggle("flex", activeIndex == null);
+	const queryString = period ? `?period=${encodeURIComponent(period)}` : "";
+
+	const render = () => {
+		const query = input.value.trim().toLowerCase();
+		const courses = gradebook.courses
+			.map((course, index) => ({ course, index, name: displayCourseTitle(course.title) }))
+			.filter(({ name }) => !query || name.toLowerCase().includes(query));
+		const assignments = gradebook.courses
+			.flatMap((course, courseIndex) => course.assignments.map((assignment) => ({ assignment, courseIndex, courseName: displayCourseTitle(course.title) })))
+			.filter(({ assignment, courseName }) => !query || assignment.name.toLowerCase().includes(query) || courseName.toLowerCase().includes(query))
+			.slice(0, 12);
+		results.innerHTML = `${courses.length ? `<p class="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">Courses</p>${courses.map(({ index, name }) => `<a class="flex w-full items-center rounded-md px-3 py-2 text-left text-sm no-underline hover:bg-accent" href="/grades/${index}${queryString}">${escapeHtml(name)}</a>`).join("")}` : ""}${assignments.length ? `<p class="px-2 pb-1 pt-3 text-xs font-medium text-muted-foreground">Assignments</p>${assignments.map(({ assignment, courseIndex, courseName }) => `<a class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm no-underline hover:bg-accent" href="/grades/${courseIndex}${queryString}#assignment-${encodeURIComponent(assignment.id)}"><span class="min-w-0 flex-1 truncate">${escapeHtml(assignment.name)}</span><span class="max-w-[42%] truncate text-xs text-muted-foreground">${escapeHtml(courseName)}</span></a>`).join("")}` : ""}${courses.length === 0 && assignments.length === 0 ? `<p class="px-3 py-8 text-center text-sm text-muted-foreground">No results found.</p>` : ""}`;
+	};
+	const close = () => { dialog.classList.add("hidden"); dialog.classList.remove("flex"); input.value = ""; };
+	trigger.onclick = () => { dialog.classList.remove("hidden"); dialog.classList.add("flex"); render(); queueMicrotask(() => input.focus()); };
+	dialog.querySelector<HTMLButtonElement>("[data-command-close]")!.onclick = close;
+	input.oninput = render;
+	input.onkeydown = (event) => { if (event.key === "Escape") close(); };
+	if (!document.documentElement.dataset.commandShortcut) {
+		document.documentElement.dataset.commandShortcut = "bound";
+		window.addEventListener("keydown", (event) => {
+			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+				event.preventDefault();
+				document.querySelector<HTMLButtonElement>("[data-command-trigger]:not(.hidden)")?.click();
+			}
+		});
 	}
+}
+
+function courseGradeHtml(course: Course): string {
 	const percent = displayPercent(course);
 	const letter = officialLetter(course);
-	const fill = progressFillClass(percent);
-	return `<div class="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5">
-		<p class="tabular-nums">
-			${letter ? `<span class="text-muted-foreground">${escapeHtml(letter)}</span> ` : ""}${escapeHtml(formatGrade(percent))}
+	const unavailable = course.officialMark.trim().toUpperCase() === "N/A";
+	return `<div class="shrink-0 text-right">
+		<p class="text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
+			${escapeHtml(formatGrade(percent))}${unavailable ? ` <span class="text-muted-foreground">(N/A)</span>` : letter ? ` <span class="text-muted-foreground">(${escapeHtml(letter)})</span>` : ""}
 		</p>
-		<div class="relative h-1.5 w-36 overflow-hidden rounded-sm bg-foreground/10" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}">
-			<div class="h-full w-full transition-all ${fill}" style="transform: ${progressTranslate(percent)};"></div>
-		</div>
 	</div>`;
+}
+
+function sourceUpdatedAt(fetchedAt: number): string {
+	if (!fetchedAt) return "just now";
+	return new Date(fetchedAt).toLocaleString([], {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
 }
 
 function renderList(
@@ -255,72 +305,69 @@ function renderList(
 ): string {
 	const selectedPeriod = period || gradebook.reportingPeriod?.index || "";
 	const periodQuery = selectedPeriod ? `?period=${encodeURIComponent(selectedPeriod)}` : "";
-	const refreshHref = selectedPeriod ? `${periodQuery}&refresh=1` : "?refresh=1";
-
-	const status = loading
-		? `<p class="mt-4 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-			<span class="inline-flex items-center gap-2" role="status" aria-live="polite">
-				${spinnerHtml()}
-				Loading grades…
-			</span>
-		</p>`
-		: `${warning ? errorHtml(warning) : ""}
-		<p class="mt-4 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-			<span class="inline-flex items-center gap-1">
-				${icons.clock("h-3.5 w-3.5")}
-				Updated ${escapeHtml(formatUpdatedAt(fetchedAt))}
-			</span>
-			<a class="text-inherit underline" href="${refreshHref}">Refresh</a>
-		</p>`;
+	const selected = selectedPeriod || gradebook.reportingPeriods[0]?.index || "";
+	const selectedPeriodLabel = gradebook.reportingPeriods.find((item) => item.index === selected)?.gradePeriod ?? "Select period";
+	const periodSelector = gradebook.reportingPeriods.length
+		? `<div class="flex justify-center">
+			<details class="group/period relative w-60" data-period-select>
+				<summary class="flex h-10 w-full cursor-pointer list-none items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-transparent ${loading ? "pointer-events-none opacity-50" : ""}" aria-label="Reporting period" ${loading ? 'aria-disabled="true"' : ""}>
+					<span class="truncate">${escapeHtml(selectedPeriodLabel)}</span>${icons.chevronDown("size-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-open/period:rotate-180")}
+				</summary>
+				<div class="absolute left-0 top-[calc(100%+0.25rem)] z-40 w-full overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md dark:border-transparent">
+					${gradebook.reportingPeriods.map((item) => `<a class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm no-underline outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground" href="?period=${encodeURIComponent(item.index)}"><span class="absolute left-2 flex size-3.5 items-center justify-center">${item.index === selected ? icons.check("size-4") : ""}</span><span class="truncate">${escapeHtml(item.gradePeriod)}</span></a>`).join("")}
+				</div>
+			</details>
+		</div>`
+		: "";
+	const status = `${loading ? `<div class="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center" role="status" aria-label="Updating grades"><div class="rounded-full border border-border bg-card p-2 text-muted-foreground shadow-sm">${spinnerHtml()}</div></div>` : ""}${warning ? errorHtml(warning) : ""}<div class="flex flex-col gap-2 py-3"><div class="flex justify-center"><div class="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">${icons.clock("size-3.5")}<span>Updated ${escapeHtml(sourceUpdatedAt(fetchedAt))}</span><button type="button" class="ml-1 text-foreground underline decoration-foreground/60 underline-offset-2 transition-colors hover:text-foreground/80 disabled:cursor-not-allowed disabled:opacity-50" data-refresh ${loading ? "disabled" : ""}>Refresh</button></div></div>${periodSelector}</div>`;
 
 	const courses =
 		gradebook.courses.length === 0
 			? `<p class="text-sm text-muted-foreground">No courses in this term yet.</p>`
-			: `<ol class="divide-y divide-border border-y border-border"${loading ? ' aria-busy="true"' : ""}>${gradebook.courses
+			: `<ol class="space-y-4"${loading ? ' aria-busy="true"' : ""}>${gradebook.courses
 					.map((course, index) => {
-						const meta = [
-							course.period && `Period ${course.period}`,
-							course.room,
-							course.teacher,
-						].filter(Boolean);
-						return `<li>
-							<a class="flex flex-col gap-2 px-4 py-3.5 text-foreground no-underline hover:bg-muted/60 sm:flex-row sm:items-center sm:justify-between" href="/grades/${index}${periodQuery}">
-								<div class="min-w-0">
-									<p class="font-medium">${escapeHtml(displayCourseTitle(course.title))}</p>
-									${meta.length > 0 ? `<p class="mt-0.5 text-sm text-muted-foreground">${escapeHtml(meta.join(" · "))}</p>` : ""}
-								</div>
-								${courseGradeHtml(course, loading)}
-							</a>
-						</li>`;
+						const percent = course.officialMark.trim().toUpperCase() === "N/A" ? null : displayPercent(course);
+						const missing = course.assignments.filter((assignment) => assignment.notes.trim().toLowerCase() === "missing").length;
+						const progress = Math.min(Math.max(percent ?? 0, 0), 100);
+						const progressColor = progressFillClass(percent);
+						return `<li><div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+							<a class="flex min-h-24 items-center gap-5 p-5 text-foreground no-underline outline-none transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" href="/grades/${index}${periodQuery}">
+								<div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary">${escapeHtml(course.period)}</div>
+								<div class="min-w-0 flex-1"><p class="truncate text-lg font-semibold text-foreground sm:text-xl">${escapeHtml(displayCourseTitle(course.title))}</p>${course.teacher || course.room ? `<p class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">${icons.user("size-3.5 shrink-0")}<span class="truncate">${escapeHtml(course.teacher)}${course.teacher && course.room ? " • " : ""}${course.room ? `Room ${escapeHtml(course.room)}` : ""}</span></p>` : ""}</div>
+								<div class="hidden min-w-28 flex-1 px-1 sm:block" aria-label="Course grade progress"><div class="relative h-2.5 overflow-hidden rounded-full border border-border bg-muted" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><div class="h-full ${progressColor} transition-all" style="width:${progress}%"></div></div></div>
+								<div class="shrink-0 text-right">${courseGradeHtml(course)}<p class="mt-1 text-xs ${missing > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}">${missing} missing assignment${missing === 1 ? "" : "s"}</p></div>
+							</a></div></li>`;
 					})
 					.join("")}</ol>`;
 
-	return `${status}
-		${courses}`;
+	return `<div class="min-h-[calc(100vh-53px)] bg-background px-5 pb-5 md:px-9 md:pb-9 ${!loading ? "grade-cache-reveal" : ""}">${status}${courses}</div>`;
 }
 
 export function mountGradesList(root: Element, data: Bootstrap): void {
 	const period = data.period;
+	let account: GradebookCacheAccount | null = null;
 
-	function paint(gradebook: Gradebook, fetchedAt: number, warning = "") {
-		writeLocalGradebook(gradebook, fetchedAt, period);
+	function paint(gradebook: Gradebook, fetchedAt: number, warning = "", loading = false) {
+		if (account && gradebook.courses.length) writeLocalGradebook(account, gradebook, fetchedAt, period);
 		fillGradebookChrome(gradebook, period);
-		root.innerHTML = renderList(gradebook, fetchedAt, period, warning);
-	}
-
-	function paintLoadingFromCache(gradebook: Gradebook) {
-		fillGradebookChrome(gradebook, period, undefined, true);
-		root.innerHTML = renderList(gradebook, 0, period, "", true);
+		root.innerHTML = renderList(gradebook, fetchedAt, period, warning, loading);
+		root.querySelector("[data-refresh]")?.addEventListener("click", () => void load(true, true));
 	}
 
 	async function load(refresh: boolean, fromCache: boolean) {
 		if (!fromCache) {
 			root.innerHTML = loadingHtml("Loading grades…");
+		} else if (account) {
+			const previous = readLocalGradebook(account, period);
+			if (previous) paint(previous.gradebook, previous.fetchedAt, "", true);
 		}
 		try {
 			const payload = await fetchGradebook(period, refresh);
-			if (!payload.gradebook) {
-				root.innerHTML = errorHtml(payload.error || "Could not load the gradebook.");
+			if (!payload.gradebook?.courses.length) {
+				const message = payload.error || "Could not load the gradebook.";
+				const previous = account ? readLocalGradebook(account, period) : null;
+				if (previous) paint(previous.gradebook, previous.fetchedAt, message);
+				else root.innerHTML = errorHtml(message);
 				return;
 			}
 			if (refresh) {
@@ -331,27 +378,25 @@ export function mountGradesList(root: Element, data: Bootstrap): void {
 			paint(payload.gradebook, payload.fetchedAt ?? Date.now(), payload.error ?? "");
 		} catch (error) {
 			if (isSessionExpired(error)) return;
-			root.innerHTML = errorHtml(error instanceof Error ? error.message : "Could not load the gradebook.");
+			const message = error instanceof Error ? error.message : "Could not load the gradebook.";
+			const previous = account ? readLocalGradebook(account, period) : null;
+			if (previous) paint(previous.gradebook, previous.fetchedAt, message);
+			else root.innerHTML = errorHtml(message);
 		}
 	}
 
-	if (data.gradebook && !data.refresh && cacheIsFresh(data.fetchedAt)) {
-		paint(data.gradebook, data.fetchedAt, data.error ?? "");
-		return;
+	async function start() {
+		const session = await getSession();
+		if (!session) redirectToLogin();
+		account = gradebookCacheAccount(session.creds);
+		const previous = readLocalGradebook(account, period);
+		if (previous) {
+			paint(previous.gradebook, previous.fetchedAt);
+			if (data.refresh || gradebookNeedsBackgroundRefresh(previous.fetchedAt)) void load(true, true);
+			return;
+		}
+		void load(Boolean(data.refresh), false);
 	}
 
-	const fresh = !data.refresh ? peekLocalGradebook(period) : null;
-	if (fresh) {
-		paint(fresh.gradebook, fresh.fetchedAt);
-		return;
-	}
-
-	const previous = readLocalGradebook(period);
-	if (previous) {
-		paintLoadingFromCache(previous.gradebook);
-		void load(Boolean(data.refresh), true);
-		return;
-	}
-
-	void load(Boolean(data.refresh), false);
+	void start();
 }

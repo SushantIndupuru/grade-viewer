@@ -1,4 +1,5 @@
 import { processRequest, StudentVueError } from "./client";
+import { resolveStudentVueAuthMode } from "./config";
 import { getWebAttendance } from "./attendance-web";
 import {
 	attemptLogin,
@@ -50,6 +51,7 @@ function mergeProfile(base: StudentProfile, extra: StudentProfile): StudentProfi
 }
 
 export async function login(creds: Credentials): Promise<{ student: StudentProfile; creds: Credentials }> {
+	resolveStudentVueAuthMode(import.meta.env.PUBLIC_STUDENTVUE_AUTH);
 	const withTokens = await attemptLogin(creds);
 	let student: StudentProfile = {
 		name: withTokens.username,

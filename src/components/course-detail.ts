@@ -9,19 +9,16 @@ import {
 	type DraftAssignment,
 } from "../lib/grades/calculate";
 import {
-	assignmentImpacts,
 	assignmentTimestamp,
 	assignmentPercent,
+	displayPercent,
 	categoryStyle,
-	displayCourseTitle,
 	formatCategoryWeight,
 	formatDateTitle,
 	formatGrade,
 	formatShortDate,
-	formatUpdatedAt,
 	gradeHistory,
 	officialLetter,
-	progressFillClass,
 	progressTranslate,
 	uniqueCategories,
 } from "../lib/grades/display";
@@ -42,7 +39,7 @@ function escapeHtml(value: string): string {
 }
 
 function badge(text: string, extra = "", title = ""): string {
-	return `<span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs ${extra}" ${title ? `title="${escapeHtml(title)}"` : ""}>${text}</span>`;
+	return `<span class="inline-flex select-none items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${extra}" ${title ? `title="${escapeHtml(title)}"` : ""}>${text}</span>`;
 }
 
 function scoreStepper(
@@ -51,13 +48,9 @@ function scoreStepper(
 	label: string,
 	value: number | null,
 ): string {
-	return `<span class="relative inline-flex">
+	return `<span class="min-w-0 flex-1">
 		<label class="sr-only" for="${field}-${index}">${escapeHtml(label)}</label>
-		<input id="${field}-${index}" data-${field}="${index}" type="text" inputmode="decimal" autocomplete="off" class="h-8 w-[4.75rem] rounded border border-border bg-background py-0 pr-6 pl-2 text-sm tabular-nums" value="${value ?? ""}" />
-		<span class="absolute inset-y-px right-px flex w-5 flex-col overflow-hidden rounded-r-[3px] border-l border-border">
-			<button class="flex flex-1 items-center justify-center text-muted-foreground hover:bg-muted" data-step="${field}" data-index="${index}" data-delta="1" type="button" tabindex="-1" aria-label="Increase ${escapeHtml(label)}">${icons.chevronUp("size-2.5")}</button>
-			<button class="flex flex-1 items-center justify-center border-t border-border text-muted-foreground hover:bg-muted" data-step="${field}" data-index="${index}" data-delta="-1" type="button" tabindex="-1" aria-label="Decrease ${escapeHtml(label)}">${icons.chevronDown("size-2.5")}</button>
-		</span>
+		<input id="${field}-${index}" data-${field}="${index}" type="number" autocomplete="off" class="h-8 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring" value="${value ?? ""}" />
 	</span>`;
 }
 
@@ -69,54 +62,37 @@ function progressBar(
 ): string {
 	const value = percent ?? 0;
 	const marked = index == null ? "" : ` data-progress="${index}"`;
-	return `<div class="relative h-1.5 w-36 overflow-hidden rounded-sm ${track}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"${marked}><div class="h-full w-full transition-all ${fill}" data-progress-fill style="transform: ${progressTranslate(percent)};"></div></div>`;
+	return `<div class="relative h-3 w-full overflow-hidden rounded-full border border-border ${track}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"${marked}><div class="h-full w-full transition-all ${fill}" data-progress-fill style="transform: ${progressTranslate(percent)};"></div></div>`;
 }
 
-function renderChart(points: { date: Date; percent: number }[]): string {
+function renderChart(points: { date: Date; percent: number }[], containerWidth = 720): string {
 	if (points.length === 0) {
-		return `<div class="flex h-52 items-center justify-center text-sm text-muted-foreground">No graded assignments yet to chart.</div>`;
+		return `<p class="px-4 py-8 text-center text-sm text-muted-foreground">The graph will appear after an assignment is graded.</p>`;
 	}
 
-	const width = 1000;
-	const height = 256;
-	const padL = 40;
+	const width = Math.max(280, Math.round(containerWidth));
+	const height = 340;
+	const padL = 46;
 	const padR = 16;
-	const padT = 12;
-	const padB = 32;
+	const padT = 18;
+	const padB = 34;
 	const innerW = width - padL - padR;
 	const innerH = height - padT - padB;
 
 	const ys = points.map((point) => point.percent);
-	let minY = Math.min(...ys);
-	let maxY = Math.max(...ys);
-	if (maxY - minY < 2) {
-		minY -= 1;
-		maxY += 1;
-	}
-	const pad = (maxY - minY) * 0.1;
-	minY = Math.max(0, minY - pad);
-	maxY += pad;
-	if (maxY <= minY) maxY = minY + 1;
+	const range = Math.max(...ys) - Math.min(...ys);
+	const gradePadding = Math.max(3, range * 0.18);
+	const minY = Math.max(0, Math.floor(Math.min(...ys) - gradePadding));
+	const maxY = Math.max(...ys) <= 100 ? 100 : Math.ceil(Math.max(...ys) + gradePadding);
+	const safeYRange = Math.max(1, maxY - minY);
 
 	const times = points.map((point) => point.date.getTime()).filter(Number.isFinite);
-	const day = 24 * 60 * 60 * 1000;
-	const week = 7 * day;
-	let minT = times.length ? Math.min(...times) : Date.now();
-	let maxT = times.length ? Math.max(...times) : minT + week;
-	if (maxT < minT) [minT, maxT] = [maxT, minT];
-	let spanT = maxT - minT;
-	if (spanT < day) {
-		maxT = minT + 6 * day;
-		spanT = maxT - minT;
-	} else {
-		const padT = spanT * 0.06;
-		minT -= padT;
-		maxT += padT;
-		spanT = maxT - minT;
-	}
+	const minT = times.length ? Math.min(...times) : Date.now();
+	const maxT = times.length ? Math.max(...times) : minT;
+	const spanT = Math.max(1, maxT - minT);
 
-	const x = (time: number) => padL + ((time - minT) / spanT) * innerW;
-	const y = (value: number) => padT + (1 - (value - minY) / (maxY - minY)) * innerH;
+	const x = (time: number) => points.length === 1 ? padL + innerW / 2 : padL + ((time - minT) / spanT) * innerW;
+	const y = (value: number) => padT + ((maxY - value) / safeYRange) * innerH;
 
 	const line = points
 		.map(
@@ -127,64 +103,38 @@ function renderChart(points: { date: Date; percent: number }[]): string {
 	const last = points[points.length - 1];
 	const area = `${line}L${x(last.date.getTime()).toFixed(2)},${padT + innerH}L${x(points[0].date.getTime()).toFixed(2)},${padT + innerH}Z`;
 
-	const yTickCount = 5;
-	const yTicks = Array.from(
-		{ length: yTickCount },
-		(_, index) => minY + ((maxY - minY) * index) / (yTickCount - 1),
-	);
+	const yTicks = Array.from({ length: 4 }, (_, index) => maxY - (safeYRange * index) / 3);
+	const xTicks = points.length <= 2
+		? points
+		: [points[0], points[Math.floor((points.length - 1) / 2)], points[points.length - 1]];
 
-	const xStep = spanT > week * 18 ? week * 2 : week;
-	const xTicks: number[] = [];
-	const start = new Date(minT);
-	start.setHours(0, 0, 0, 0);
-	let tick = start.getTime();
-	while (tick < minT) tick += xStep;
-	for (; tick <= maxT + 1; tick += xStep) xTicks.push(tick);
-	if (xTicks.length === 0) xTicks.push(minT, maxT);
-
-	const formatX = (time: number) => {
-		const date = new Date(time);
-		return `${date.getMonth() + 1}/${date.getDate()}`;
-	};
+	const formatX = (date: Date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 	return `
-		<div class="h-52 overflow-hidden text-xs sm:h-56">
-			<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="h-full w-full overflow-hidden text-chart" role="figure">
-				<defs>
-					<clipPath id="grade-clip">
-						<rect x="${padL}" y="${padT}" width="${innerW}" height="${innerH}" />
-					</clipPath>
-					<linearGradient id="grade-fill" x1="0" y1="0" x2="0" y2="1">
-						<stop offset="0%" stop-color="currentColor" stop-opacity="0.35" />
-						<stop offset="100%" stop-color="currentColor" stop-opacity="0.02" />
-					</linearGradient>
-				</defs>
+		<div class="relative w-full overflow-hidden pb-2" role="group" aria-label="Course grade over time">
+			<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="block h-[340px] w-full touch-none" role="figure">
 				${yTicks
 					.map((value) => {
 						const py = y(value);
 						return `<g>
-							<line x1="${padL}" y1="${py}" x2="${width - padR}" y2="${py}" class="stroke-border" />
-							<text x="${padL - 8}" y="${py}" text-anchor="end" dominant-baseline="middle" class="fill-muted-foreground">${Math.round(value)}</text>
+							<line x1="${padL}" y1="${py}" x2="${width - padR}" y2="${py}" class="stroke-border" vector-effect="non-scaling-stroke" />
+							<text x="${padL - 8}" y="${py + 4}" text-anchor="end" class="fill-muted-foreground text-[11px]">${value.toFixed(0)}%</text>
 						</g>`;
 					})
 					.join("")}
-				<g clip-path="url(#grade-clip)">
-					<path d="${area}" fill="url(#grade-fill)" class="opacity-80" />
-					<path d="${line}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
-				</g>
+				<path d="${area}" style="fill:#2563eb;opacity:.04" />
+				<path d="${line}" style="fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" vector-effect="non-scaling-stroke" />
 				${points
 					.map(
 						(point) =>
-							`<circle cx="${x(point.date.getTime())}" cy="${y(point.percent)}" r="4" fill="currentColor" />`,
+							`<circle cx="${x(point.date.getTime())}" cy="${y(point.percent)}" r="3.5" style="fill:#2563eb" class="stroke-card" stroke-width="2" vector-effect="non-scaling-stroke" />`,
 					)
 					.join("")}
 				${xTicks
-					.map((time) => {
-						const px = x(Math.min(Math.max(time, minT), maxT));
-						return `<g>
-							<line x1="${px}" y1="${padT + innerH}" x2="${px}" y2="${padT + innerH + 4}" class="stroke-border" />
-							<text x="${px}" y="${height - 8}" text-anchor="middle" class="fill-muted-foreground">${formatX(time)}</text>
-						</g>`;
+					.map((point, index) => {
+						const px = x(point.date.getTime());
+						const anchor = index === 0 ? "start" : index === xTicks.length - 1 ? "end" : "middle";
+						return `<text x="${px}" y="${height - 8}" text-anchor="${anchor}" class="fill-muted-foreground text-[11px]">${formatX(point.date)}</text>`;
 					})
 					.join("")}
 			</svg>
@@ -206,32 +156,26 @@ function assignmentCard(
 	categories: string[],
 	tab: string,
 	hypothetical: boolean,
-	impact: number | null,
 	weightLabels: Record<string, string>,
 ): string {
 	const extra = isExtraCredit(assignment);
 	const notScored = assignment.ungraded || assignment.pointsEarned == null;
 	const percent = assignmentPercent(assignment);
-	const style = categoryStyle(assignment.type, categories);
 	const typeOptions =
 		!assignment.type || categories.includes(assignment.type)
 			? categories
 			: [assignment.type, ...categories];
-	const overMax =
-		assignment.pointsEarned != null &&
-		assignment.pointsPossible != null &&
-		assignment.pointsPossible > 0 &&
-		assignment.pointsEarned > assignment.pointsPossible;
-	const barPercent =
-		overMax && assignment.pointsPossible
-			? (assignment.pointsPossible / assignment.pointsEarned) * 100
-			: percent;
-	const fill = progressFillClass(percent, extra);
-	const track = overMax ? "bg-indigo-700" : "bg-foreground/10";
-	const impactClass =
-		impact == null ? "" : impact >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
-	const impactText =
-		impact == null ? "" : `${impact > 0 ? "+" : ""}${impact.toFixed(2)}%`;
+	const assignmentTone = categoryStyle(assignment.type, categories);
+	const categorySelect = hypothetical
+		? `<label class="flex min-w-0 items-center gap-2 sm:w-60" for="type-${index}"><span class="size-2 shrink-0 rounded-full ${assignmentTone.dot}" aria-hidden="true"></span><span class="sr-only">Category</span><select id="type-${index}" data-type="${index}" class="h-9 min-w-0 flex-1 rounded-md border border-input bg-card px-3 text-sm font-medium text-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring" title="Category">${typeOptions.map((type) => {
+			const weight = weightLabels[type];
+			const label = weight ? `${type} · ${weight}` : type;
+			return `<option value="${escapeHtml(type)}" ${assignment.type === type ? "selected" : ""}>${escapeHtml(label)}</option>`;
+		}).join("")}</select></label>`
+		: "";
+	const barPercent = percent == null ? null : Math.min(Math.max(percent, 0), 100);
+	const fill = "bg-primary";
+	const track = "bg-muted";
 
 	const possibleText = extra
 		? `${assignment.pointsEarned ?? 0}/<span class="text-indigo-700 dark:text-indigo-400">${assignment.pointsPossible ?? 0}</span>`
@@ -242,75 +186,64 @@ function assignmentCard(
 			: `${assignment.pointsEarned}/${assignment.pointsPossible}`;
 
 	const scores = hypothetical
-		? `${scoreStepper("earned", index, "Points earned", assignment.pointsEarned)}
-			<span>/</span>
-			${scoreStepper("possible", index, "Points possible", assignment.pointsPossible)}`
-		: `<span class="tabular-nums" title="${notScored ? "Points possible" : "Points earned/Points possible"}">${possibleText}</span>
-			${percent == null || notScored || (extra && assignment.pointsPossible === 0) ? "" : `<span class="tabular-nums text-muted-foreground" title="Assignment grade percentage">${formatGrade(percent)}</span>`}`;
+		? `<div class="mt-2 flex items-center gap-1.5">${scoreStepper("earned", index, "Points earned", assignment.pointsEarned)}<span class="text-muted-foreground">/</span>${scoreStepper("possible", index, "Points possible", assignment.pointsPossible)}</div>`
+		: notScored
+			? `<div class="mt-2 flex justify-between text-xs text-muted-foreground"><span>${assignment.pointsEarned ?? "—"}/${assignment.pointsPossible ?? "—"}</span><span>Not entered</span></div>`
+			: `<div class="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground"><span>${possibleText}</span><span>${extra && assignment.pointsPossible === 0 ? "Extra credit" : formatGrade(percent)}</span></div>`;
 
-	return `<li class="border-b border-border py-3">
-		<div class="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center">
-			<div class="flex min-w-0 flex-1 flex-col gap-1">
+	return `<li><div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center">
+			<div class="min-w-0 flex-1">
 				<div class="flex flex-wrap items-center gap-1">
 					${
 						hypothetical && assignment.added
-							? `<input data-name="${index}" class="h-8 min-w-40 rounded border border-border bg-background px-2 text-sm" value="${escapeHtml(assignment.name)}" />`
-							: `<span>${escapeHtml(assignment.name)}</span>`
+							? `<input data-name="${index}" class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" value="${escapeHtml(assignment.name)}" />`
+							: `<p class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">${escapeHtml(assignment.name)}</p>`
 					}
 					${popover("Teacher comments", assignment.notes, icons.message("size-3.5"))}
 				</div>
-				<div class="flex flex-wrap items-center gap-1">
+				<div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
 					${
-						hypothetical && assignment.added
-							? `<label class="sr-only" for="type-${index}">Category</label>
-								<select id="type-${index}" data-type="${index}" class="h-7 rounded border border-border bg-background px-1.5 text-xs" title="Category">
-									${typeOptions
-										.map((type) => {
-											const weight = weightLabels[type];
-											const label = weight ? `${type} · ${weight}` : type;
-											return `<option value="${escapeHtml(type)}" ${assignment.type === type ? "selected" : ""}>${escapeHtml(label)}</option>`;
-										})
-										.join("")}
-								</select>`
-							: tab === "all" && assignment.type
+						hypothetical
+							? ""
+							: assignment.type
 								? badge(
-										`${escapeHtml(assignment.type)}${weightLabels[assignment.type] ? ` · ${escapeHtml(weightLabels[assignment.type])}` : ""}`,
-										style.badge,
+										`<span class="mr-1.5 inline-block size-2 rounded-full align-middle ${assignmentTone.dot}" aria-hidden="true"></span>${escapeHtml(assignment.type)}${weightLabels[assignment.type] ? ` · ${escapeHtml(weightLabels[assignment.type])}` : ""}`,
+										"border-transparent bg-secondary text-secondary-foreground",
 										"Category",
 									)
 								: ""
 					}
-					${notScored ? badge(escapeHtml(assignment.displayScore || "Not Graded"), "bg-purple-100 text-purple-900 dark:bg-purple-900/40 dark:text-purple-100") : ""}
-					${extra ? badge("Extra Credit", "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100", "Calculated as if zero points were possible") : ""}
+					${notScored ? badge("Not graded", "text-foreground") : ""}
+					${extra ? badge("Extra credit", "text-foreground", "Calculated as if zero points were possible") : ""}
 					${
-						assignment.date
+						assignment.date && !hypothetical
 							? badge(
 									formatShortDate(assignment.date),
-									"bg-muted text-muted-foreground",
+									"text-foreground",
 									formatDateTitle(assignment.date),
 								)
 							: ""
 					}
 				</div>
 			</div>
-			<div class="flex w-full flex-col items-end gap-1.5 sm:w-auto">
-				<div class="flex items-center gap-2 text-sm">
-					${hypothetical && assignment.added ? `<button class="text-sm text-muted-foreground underline" data-remove="${index}" type="button">Remove</button>` : ""}
-					<span class="${impactClass} min-w-0 tabular-nums" data-impact="${index}" title="Change in overall grade when this assignment was added">${impactText}</span>
+			<div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+				${hypothetical && assignment.date ? `<div class="shrink-0 pb-0.5">${badge(formatShortDate(assignment.date), "text-foreground", formatDateTitle(assignment.date))}</div>` : ""}
+				${categorySelect}
+				<div class="w-full sm:w-56">
+					${progressBar(barPercent, fill, track, index)}
 					${scores}
 				</div>
-				${notScored && !hypothetical ? "" : progressBar(barPercent, fill, extra ? "bg-foreground/10" : track, index)}
 			</div>
-		</div>
-	</li>`;
+	</div></li>`;
 }
 
-export function mountCourseDetail(root: Element, data: Bootstrap): void {
+export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 	const official = toDraft(data.course.assignments);
 	let draft = toDraft(data.course.assignments);
 	let hypothetical = false;
-	let pinChart = false;
 	let tab = "all";
+	let chartObserver: ResizeObserver | null = null;
+	let gradeAnimationFrame: number | null = null;
 
 	function assignments(): DraftAssignment[] {
 		return hypothetical ? draft : official;
@@ -318,20 +251,74 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 
 	function gradeHtml(percent: number | null): string {
 		const letter = hypothetical ? null : officialLetter(data.course);
-		return `${letter ? `<span class="text-muted-foreground">${escapeHtml(letter)}</span> ` : ""}${escapeHtml(formatGrade(percent))}`;
+		return `${escapeHtml(formatGrade(percent, hypothetical ? 1 : 2))}${letter ? ` <span class="text-muted-foreground">(${escapeHtml(letter)})</span>` : ""}`;
+	}
+
+	function setHeaderGrade(percent: number | null, animate = false): void {
+		const grade = document.querySelector<HTMLElement>("[data-page-grade]");
+		if (!grade) return;
+		if (gradeAnimationFrame != null) cancelAnimationFrame(gradeAnimationFrame);
+		gradeAnimationFrame = null;
+		grade.removeAttribute("hidden");
+		const previous = Number(grade.dataset.gradeValue);
+		grade.dataset.gradeValue = percent == null ? "" : String(percent);
+		if (!animate || percent == null || !Number.isFinite(previous) || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+			grade.innerHTML = gradeHtml(percent);
+			return;
+		}
+		const startedAt = performance.now();
+		const duration = 750;
+		const tick = (now: number) => {
+			const elapsed = Math.min(1, (now - startedAt) / duration);
+			const eased = 1 - Math.pow(1 - elapsed, 5);
+			const value = previous + (percent - previous) * eased;
+			grade.textContent = formatGrade(value, 1);
+			if (elapsed < 1) gradeAnimationFrame = requestAnimationFrame(tick);
+			else {
+				gradeAnimationFrame = null;
+				grade.innerHTML = gradeHtml(percent);
+			}
+		};
+		gradeAnimationFrame = requestAnimationFrame(tick);
+	}
+
+	function drawChart(list: DraftAssignment[]): void {
+		chartObserver?.disconnect();
+		const host = root.querySelector<HTMLElement>("[data-chart-canvas]");
+		if (!host) return;
+		const points = gradeHistory(data.course, list);
+		let previousWidth = 0;
+		const paint = () => {
+			const width = Math.max(280, Math.round(host.getBoundingClientRect().width));
+			if (width === previousWidth) return;
+			previousWidth = width;
+			host.innerHTML = renderChart(points, width);
+		};
+		requestAnimationFrame(paint);
+		if (typeof ResizeObserver !== "undefined") {
+			chartObserver = new ResizeObserver(paint);
+			chartObserver.observe(host);
+		}
 	}
 
 	function render(): void {
 		const course = data.course;
 		const list = assignments();
 		const result = calculateCourse(course, list);
+		setHeaderGrade(hypothetical ? result.percent : displayPercent(course));
 		const categories = uniqueCategories(list, course.categories.map((category) => category.type));
 		const weightLabels: Record<string, string> = {};
 		for (const type of categories) {
 			const weight = formatCategoryWeight(type, course.categories);
 			if (weight) weightLabels[type] = weight;
 		}
-		const impacts = assignmentImpacts(course, list);
+		const officialPercent = displayPercent(course);
+		const trendDifference = !hypothetical && result.percent != null && officialPercent != null
+			? result.percent - officialPercent
+			: 0;
+		const trendNote = Math.abs(trendDifference) >= 0.05
+			? `<div class="-mt-2 text-sm"><p class="text-red-500">Trend differs from StudentVUE · calculated ${escapeHtml(formatGrade(result.percent))}, StudentVUE reports ${escapeHtml(formatGrade(officialPercent))}</p><p class="mt-0.5 text-muted-foreground">Hidden, dropped, or otherwise unavailable gradebook data can cause a difference.</p></div>`
+			: "";
 		const now = Date.now();
 		const visible = list
 			.map((assignment, index) => ({ assignment, index }))
@@ -342,68 +329,39 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 			})
 			.map(({ assignment }) => assignment)
 			.filter((assignment) => tab === "all" || assignment.type === tab);
-		const backHref = `/grades${data.period ? `?period=${encodeURIComponent(data.period)}` : ""}`;
-
 		root.innerHTML = `
-			<div class="flex flex-1 flex-col">
-				<p class="mt-4 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-					<span class="inline-flex items-center gap-1">
-						${icons.clock("h-3.5 w-3.5")}
-						Updated ${escapeHtml(formatUpdatedAt(data.fetchedAt ?? 0))}
-					</span>
-					<button class="cursor-pointer underline" data-refresh type="button">Refresh</button>
-				</p>
-				<div class="bg-background sticky top-0 z-10 border-b border-border py-3">
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex min-w-0 items-center gap-1">
-							<a
-								class="inline-flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground no-underline hover:bg-muted hover:text-foreground"
-								href="${backHref}"
-								aria-label="Back to grades"
-							>
-								${icons.chevronLeft("h-5 w-5")}
-							</a>
-							<h1 class="min-w-0 truncate text-lg font-medium">${escapeHtml(displayCourseTitle(course.title))}</h1>
-						</div>
-						<p class="shrink-0 tabular-nums" data-course-grade>
-							${gradeHtml(result.percent)}
-						</p>
-					</div>
-				</div>
-				<div class="min-w-0 overflow-hidden ${pinChart ? "bg-background sticky top-14 z-10" : ""}" data-chart>
-					${renderChart(gradeHistory(course, list))}
-				</div>
-				<div class="mt-3 mb-4 flex min-h-9 flex-wrap items-center gap-x-5 gap-y-2">
-					<label class="inline-flex items-center gap-2 text-sm">
-						<input class="size-4" id="hypothetical-mode" data-hypothetical type="checkbox" ${hypothetical ? "checked" : ""} />
-						<span class="${hypothetical ? "font-medium underline" : ""}">Hypothetical mode</span>
-					</label>
-					<label class="hidden items-center gap-2 text-sm sm:inline-flex">
-						<input class="size-4" id="pin-chart" data-pin type="checkbox" ${pinChart ? "checked" : ""} />
-						Pin chart to top of screen
+			<div class="flex min-h-screen flex-col gap-4 p-4 md:p-6">
+				<div class="min-w-0 overflow-hidden" data-chart-canvas></div>
+				${trendNote}
+				<div class="flex flex-wrap items-center justify-end gap-4">
+					<label class="inline-flex cursor-pointer items-center gap-2 text-sm" for="hypothetical-mode">
+						<span class="relative box-content size-4 shrink-0">
+							<input class="peer box-content size-4 shrink-0 appearance-none rounded-[3px] border border-primary bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 checked:bg-primary disabled:cursor-not-allowed disabled:opacity-50" id="hypothetical-mode" data-hypothetical type="checkbox" ${hypothetical ? "checked" : ""} />
+							<svg class="pointer-events-none absolute inset-0 hidden size-4 stroke-primary-foreground peer-checked:block" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
+						</span>
+						<span class="font-medium">Hypothetical</span>
 					</label>
 					${
 						hypothetical
-							? `<div class="flex items-center gap-3">
-								<button class="h-8 rounded border border-border px-2.5 text-sm hover:bg-muted" data-add type="button">Add assignment</button>
-								<button class="text-sm text-muted-foreground underline" data-reset type="button">Reset</button>
+							? `<div class="flex gap-2">
+								<button class="h-8 rounded-md px-3 text-sm font-medium transition-colors hover:bg-muted" data-add type="button">Add Assignment</button>
+								<button class="h-8 rounded-md px-3 text-sm font-medium transition-colors hover:bg-muted" data-reset type="button">Reset</button>
 							</div>`
 							: ""
 					}
 				</div>
-				<div class="flex flex-col gap-1">
-					<div class="flex max-w-full items-center gap-1 overflow-x-auto border-b border-border">
-						<button class="shrink-0 border-b-2 px-2 py-1.5 text-sm ${tab === "all" ? "border-foreground font-medium" : "border-transparent text-muted-foreground"}" data-tab="all" type="button">All</button>
+				${list.length > 0 || hypothetical ? `<div class="flex flex-col gap-4">
+					<div class="inline-flex h-10 w-fit max-w-full items-center justify-start gap-0 overflow-x-auto rounded-md bg-muted p-1 text-muted-foreground">
+						<button class="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${tab === "all" ? "bg-background text-foreground shadow-sm" : ""}" data-tab="all" type="button">All</button>
 						${categories
 							.map((type) => {
-								const style = categoryStyle(type, categories);
 								const active = tab === type;
-								const weight = weightLabels[type];
-								return `<button class="inline-flex shrink-0 items-center gap-1.5 border-b-2 px-2 py-1.5 text-sm whitespace-nowrap ${active ? "border-foreground font-medium" : "border-transparent text-muted-foreground"}" data-tab="${escapeHtml(type)}" type="button" title="${weight ? `${escapeHtml(type)} · ${weight} of overall grade` : escapeHtml(type)}"><span class="${style.dot} h-2 w-2 rounded-full"></span>${escapeHtml(type)}${weight ? `<span class="tabular-nums text-muted-foreground">${weight}</span>` : ""}</button>`;
+								const tone = categoryStyle(type, categories);
+								return `<button class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${active ? "bg-background text-foreground shadow-sm" : ""}" data-tab="${escapeHtml(type)}" type="button"><span class="size-2 shrink-0 rounded-full ${tone.dot}" aria-hidden="true"></span>${escapeHtml(type)}</button>`;
 							})
 							.join("")}
 					</div>
-					<ol>
+					<ol class="flex flex-col gap-3">
 						${
 							visible.length === 0
 								? `<li class="py-8 text-center text-sm text-muted-foreground">No assignments in this category.</li>`
@@ -415,17 +373,17 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 												categories,
 												tab,
 												hypothetical,
-												impacts.get(assignment.id) ?? null,
 												weightLabels,
 											),
 										)
 										.join("")
 						}
 					</ol>
-				</div>
+				</div>` : ""}
 			</div>
 		`;
 
+		drawChart(list);
 		bind();
 	}
 
@@ -441,39 +399,18 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 		const course = data.course;
 		const list = assignments();
 		const result = calculateCourse(course, list);
-		const gradeEl = root.querySelector("[data-course-grade]");
-		if (gradeEl) gradeEl.innerHTML = gradeHtml(result.percent);
-		const chartEl = root.querySelector("[data-chart]");
-		if (chartEl) chartEl.innerHTML = renderChart(gradeHistory(course, list));
+		setHeaderGrade(result.percent, true);
+		drawChart(list);
 
-		const impacts = assignmentImpacts(course, list);
 		for (const [index, assignment] of list.entries()) {
 			const extra = isExtraCredit(assignment);
 			const percent = assignmentPercent(assignment);
-			const impact = impacts.get(assignment.id) ?? null;
-			const impactEl = root.querySelector(`[data-impact="${index}"]`);
-			if (impactEl) {
-				impactEl.className =
-					impact == null
-						? "min-w-0 tabular-nums"
-						: `min-w-0 tabular-nums ${impact >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`;
-				impactEl.textContent =
-					impact == null ? "" : `${impact > 0 ? "+" : ""}${impact.toFixed(2)}%`;
-			}
-			const overMax =
-				assignment.pointsEarned != null &&
-				assignment.pointsPossible != null &&
-				assignment.pointsPossible > 0 &&
-				assignment.pointsEarned > assignment.pointsPossible;
-			const barPercent =
-				overMax && assignment.pointsPossible
-					? (assignment.pointsPossible / assignment.pointsEarned) * 100
-					: percent;
-			const fill = progressFillClass(percent, extra);
-			const track = extra ? "bg-foreground/10" : overMax ? "bg-indigo-700" : "bg-foreground/10";
+			const barPercent = percent == null ? null : Math.min(Math.max(percent, 0), 100);
+			const fill = "bg-primary";
+			const track = "bg-muted";
 			const bar = root.querySelector(`[data-progress="${index}"]`);
 			if (bar instanceof HTMLElement) {
-				bar.className = `relative h-1.5 w-36 overflow-hidden rounded-sm ${track}`;
+				bar.className = `relative h-3 w-full overflow-hidden rounded-full border border-border ${track}`;
 				bar.setAttribute("aria-valuenow", String(barPercent ?? 0));
 				const fillEl = bar.querySelector("[data-progress-fill]");
 				if (fillEl instanceof HTMLElement) {
@@ -489,7 +426,9 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 		const parsed = parseScoreInput(raw);
 		if (parsed === undefined) return;
 		if (field === "earned") {
-			assignment.pointsEarned = parsed;
+			assignment.pointsEarned = parsed == null || isExtraCredit(assignment)
+				? parsed
+				: Math.min(Math.max(parsed, 0), assignment.pointsPossible ?? parsed);
 			assignment.ungraded = parsed == null;
 		} else {
 			assignment.pointsPossible = parsed;
@@ -501,8 +440,11 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 		const assignment = draft[index];
 		if (!assignment) return;
 		const current = field === "earned" ? assignment.pointsEarned : assignment.pointsPossible;
-		const next = Math.max(0, Number(((current ?? 0) + delta).toFixed(10)));
+		let next = Math.max(0, Number(((current ?? 0) + delta).toFixed(10)));
 		if (field === "earned") {
+			if (!isExtraCredit(assignment) && assignment.pointsPossible != null) {
+				next = Math.min(next, assignment.pointsPossible);
+			}
 			assignment.pointsEarned = next;
 			assignment.ungraded = false;
 		} else {
@@ -521,10 +463,7 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 		});
 		root.querySelector<HTMLInputElement>("[data-hypothetical]")?.addEventListener("change", (event) => {
 			hypothetical = (event.currentTarget as HTMLInputElement).checked;
-			render();
-		});
-		root.querySelector<HTMLInputElement>("[data-pin]")?.addEventListener("change", (event) => {
-			pinChart = (event.currentTarget as HTMLInputElement).checked;
+			draft = toDraft(data.course.assignments);
 			render();
 		});
 		root.querySelector("[data-add]")?.addEventListener("click", () => {
@@ -592,4 +531,8 @@ export function mountCourseDetail(root: Element, data: Bootstrap): void {
 	}
 
 	render();
+	return () => {
+		chartObserver?.disconnect();
+		if (gradeAnimationFrame != null) cancelAnimationFrame(gradeAnimationFrame);
+	};
 }

@@ -1,9 +1,15 @@
-export type StudentVueTransportMode = "libcurl";
+import {
+	resolveStudentVueTransportMode,
+	resolveWispUrl,
+	type StudentVueTransportConfig,
+} from "./config";
 
-export interface StudentVueTransportConfig {
-	mode: StudentVueTransportMode;
-	wispUrl?: string;
-}
+export {
+	resolveStudentVueTransportMode,
+	resolveWispUrl,
+	validateWispUrl,
+} from "./config";
+export type { StudentVueTransportConfig, StudentVueTransportMode } from "./config";
 
 type WorkerRequest = {
 	id: number;
@@ -29,43 +35,28 @@ type WorkerFailure = { id: number; error: string };
 type WorkerConfigured = { type: "configured" };
 type WorkerConfigurationFailure = { type: "configuration-error"; error: string };
 
+type PendingRequest = {
+	resolve: (response: Response) => void;
+	reject: (reason: Error) => void;
+	cleanup: () => void;
+};
+
 function describeWorkerFailure(message: string): string {
 	if (/wasm|abort|memory|out of bounds/i.test(message)) {
-		return "StudentVUE transport worker stopped while processing the public response.";
+		return "StudentVUE transport worker stopped unexpectedly.";
 	}
 	return "StudentVUE transport worker failed.";
 }
 
-function isLocalHostname(hostname: string): boolean {
-	return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
-}
-
-export function validateWispUrl(value: string): URL {
-	const url = new URL(value);
-	if (url.protocol === "wss:") {
-		if (!url.pathname.endsWith("/")) url.pathname += "/";
-		return url;
-	}
-	if (url.protocol === "ws:" && isLocalHostname(url.hostname)) {
-		if (!url.pathname.endsWith("/")) url.pathname += "/";
-		return url;
-	}
-	throw new Error("PUBLIC_WISP_URL must use wss:.");
-}
-
-function resolveWispUrl(): string {
-	const configured = (import.meta.env.PUBLIC_WISP_URL ?? "").trim();
-	if (configured) return validateWispUrl(configured).href;
-	if (import.meta.env.DEV && typeof location !== "undefined") {
-		const url = new URL("/wisp/", location.href);
-		url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
-		return url.href;
-	}
-	throw new Error("PUBLIC_WISP_URL is required in production (astro dev serves /wisp/ locally).");
-}
-
 export function getStudentVueTransportConfig(): StudentVueTransportConfig {
-	return { mode: "libcurl", wispUrl: resolveWispUrl() };
+	return {
+		mode: resolveStudentVueTransportMode(import.meta.env.PUBLIC_STUDENTVUE_TRANSPORT),
+		wispUrl: resolveWispUrl(
+			import.meta.env.PUBLIC_WISP_URL_2,
+			import.meta.env.DEV,
+			typeof location === "undefined" ? undefined : location.href,
+		),
+	};
 }
 
 function serializeInit(init: RequestInit): WorkerRequest["init"] {
@@ -97,11 +88,9 @@ export class StudentVueTransport {
 	private workerSetup?: Promise<void>;
 	private resolveWorkerSetup?: () => void;
 	private rejectWorkerSetup?: (reason: Error) => void;
+	private workerSetupTimer?: ReturnType<typeof setTimeout>;
 	private nextId = 0;
-	private pending = new Map<
-		number,
-		{ resolve: (response: Response) => void; reject: (reason: Error) => void }
-	>();
+	private pending = new Map<number, PendingRequest>();
 
 	constructor(private readonly config = getStudentVueTransportConfig()) {}
 
@@ -109,53 +98,83 @@ export class StudentVueTransport {
 		if (typeof window === "undefined") {
 			throw new Error("StudentVUE transport is browser-only and cannot run on the server.");
 		}
-		if (this.config.mode !== "libcurl") return fetch(input, init);
 		const url = String(input);
 		await this.waitForWorkerSetup();
 		return this.fetchWithWorker(url, init);
 	}
 
 	close(): void {
-		for (const { reject } of this.pending.values()) {
-			reject(new Error("StudentVUE transport closed."));
-		}
-		this.pending.clear();
-		this.worker?.postMessage({ type: "close" });
-		this.worker?.terminate();
-		this.worker = undefined;
-		this.rejectWorkerSetup?.(new Error("StudentVUE transport closed."));
-		this.workerSetup = undefined;
-		this.resolveWorkerSetup = undefined;
-		this.rejectWorkerSetup = undefined;
+		const worker = this.worker;
+		worker?.postMessage({ type: "close" });
+		this.failWorker(new Error("StudentVUE transport closed."), worker);
 	}
 
 	private fetchWithWorker(url: string, init: RequestInit): Promise<Response> {
 		const worker = this.getWorker();
 		const id = this.nextId++;
+		const serialized = serializeInit(init);
 		return new Promise((resolve, reject) => {
-			const pending = { resolve, reject };
+			let abortListener: (() => void) | undefined;
+			const cleanup = () => {
+				if (abortListener) init.signal?.removeEventListener("abort", abortListener);
+			};
+			const pending = { resolve, reject, cleanup };
 			this.pending.set(id, pending);
 			if (init.signal) {
 				if (init.signal.aborted) {
 					this.pending.delete(id);
+					cleanup();
 					reject(init.signal.reason instanceof Error ? init.signal.reason : new Error("Aborted"));
 					return;
 				}
+				abortListener = () => {
+					if (!this.pending.delete(id)) return;
+					cleanup();
+					reject(init.signal?.reason instanceof Error ? init.signal.reason : new Error("Aborted"));
+					// libcurl.js cannot reliably cancel an in-flight WASM request. Terminating
+					// the worker prevents a timed-out request from poisoning the next login.
+					this.failWorker(new Error("StudentVUE connection timed out."), worker);
+				};
 				init.signal.addEventListener(
 					"abort",
-					() => {
-						if (!this.pending.delete(id)) return;
-						reject(init.signal?.reason instanceof Error ? init.signal.reason : new Error("Aborted"));
-					},
+					abortListener,
 					{ once: true },
 				);
 			}
-			worker.postMessage({ id, url, init: serializeInit(init) } satisfies WorkerRequest);
+			try {
+				worker.postMessage({ id, url, init: serialized } satisfies WorkerRequest);
+			} catch {
+				this.pending.delete(id);
+				cleanup();
+				const error = new Error("Browser rejected the transport request configuration.");
+				reject(error);
+				this.failWorker(error, worker);
+			}
 		});
+	}
+
+	private failWorker(error: Error, worker = this.worker): void {
+		if (worker && this.worker && worker !== this.worker) return;
+		if (this.workerSetupTimer) clearTimeout(this.workerSetupTimer);
+		this.workerSetupTimer = undefined;
+		worker?.terminate();
+		this.worker = undefined;
+		this.rejectWorkerSetup?.(error);
+		this.workerSetup = undefined;
+		this.resolveWorkerSetup = undefined;
+		this.rejectWorkerSetup = undefined;
+		for (const pending of this.pending.values()) {
+			pending.cleanup();
+			pending.reject(error);
+		}
+		this.pending.clear();
 	}
 
 	private getWorker(): Worker {
 		if (this.worker) return this.worker;
+		if (!this.config.wispUrl) {
+			throw new Error("PUBLIC_WISP_URL_2 is required in production (astro dev serves /wisp/ locally).");
+		}
 		const worker = new Worker(new URL("./transport.worker.ts", import.meta.url), {
 			type: "module",
 		});
@@ -167,16 +186,20 @@ export class StudentVueTransport {
 			data,
 		}: MessageEvent<WorkerResponse | WorkerFailure | WorkerConfigured | WorkerConfigurationFailure>) => {
 			if ("type" in data && data.type === "configured") {
+				if (worker !== this.worker) return;
+				if (this.workerSetupTimer) clearTimeout(this.workerSetupTimer);
+				this.workerSetupTimer = undefined;
 				this.resolveWorkerSetup?.();
 				return;
 			}
 			if ("type" in data && data.type === "configuration-error") {
-				this.rejectWorkerSetup?.(new Error(data.error));
+				this.failWorker(new Error(data.error), worker);
 				return;
 			}
 			const pending = this.pending.get(data.id);
 			if (!pending) return;
 			this.pending.delete(data.id);
+			pending.cleanup();
 			if ("error" in data) {
 				pending.reject(new Error(data.error));
 				return;
@@ -197,30 +220,29 @@ export class StudentVueTransport {
 		};
 		worker.onerror = (event) => {
 			const error = new Error(describeWorkerFailure(event.message));
-			this.rejectWorkerSetup?.(error);
-			for (const { reject } of this.pending.values()) reject(error);
-			this.pending.clear();
+			this.failWorker(error, worker);
+			event.preventDefault();
 		};
-		if (!this.config.wispUrl) {
-			throw new Error("PUBLIC_WISP_URL is required in production (astro dev serves /wisp/ locally).");
-		}
-		worker.postMessage({ type: "configure", wispUrl: this.config.wispUrl });
+		worker.onmessageerror = () => {
+			this.failWorker(new Error("StudentVUE transport worker returned an invalid message."), worker);
+		};
 		this.worker = worker;
+		this.workerSetupTimer = setTimeout(() => {
+			this.failWorker(new Error("StudentVUE connection timed out."), worker);
+		}, StudentVueTransport.SETUP_TIMEOUT_MS);
+		try {
+			worker.postMessage({ type: "configure", wispUrl: this.config.wispUrl });
+		} catch {
+			const error = new Error("Browser transport could not start.");
+			this.failWorker(error, worker);
+			throw error;
+		}
 		return worker;
 	}
 
 	private waitForWorkerSetup(): Promise<void> {
 		this.getWorker();
-		const setup = this.workerSetup ?? Promise.reject(new Error("Browser transport could not start."));
-		return Promise.race([
-			setup,
-			new Promise<never>((_resolve, reject) => {
-				window.setTimeout(
-					() => reject(new Error("Browser transport startup timed out.")),
-					StudentVueTransport.SETUP_TIMEOUT_MS,
-				);
-			}),
-		]);
+		return this.workerSetup ?? Promise.reject(new Error("Browser transport could not start."));
 	}
 }
 
