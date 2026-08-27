@@ -1,5 +1,6 @@
 import type { Course, Gradebook, ReportingPeriod } from "../lib/studentvue/types";
 import { icons } from "./icons";
+import { mountCourseDetail } from "./course-detail";
 import { gradebookNeedsBackgroundRefresh } from "../lib/grades/cache-policy";
 import {
 	gradebookCacheAccount,
@@ -160,7 +161,12 @@ export async function fetchGradebook(period: string, refresh = false): Promise<G
 
 	const payload = await parseGradebookResponse(response);
 	if (payload.gradebook?.courses.length) {
-		writeLocalGradebook(account, payload.gradebook, payload.fetchedAt ?? Date.now(), period);
+		writeLocalGradebook(
+			account,
+			payload.gradebook,
+			payload.fetchedAt ?? Date.now(),
+			period || payload.gradebook.reportingPeriod?.index || "",
+		);
 		touchLoginActivity(session);
 	}
 	return payload;
@@ -343,21 +349,128 @@ function renderList(
 	return `<div class="min-h-[calc(100vh-53px)] bg-background px-5 pb-5 md:px-9 md:pb-9 ${!loading ? "grade-cache-reveal" : ""}">${status}${courses}</div>`;
 }
 
+function courseIndexFromPath(pathname: string): number | null {
+	const match = pathname.match(/^\/grades\/(\d+)\/?$/);
+	if (!match) return null;
+	const index = Number(match[1]);
+	return Number.isInteger(index) && index >= 0 ? index : null;
+}
+
+function isGradesListPath(pathname: string): boolean {
+	return pathname === "/grades" || pathname === "/grades/";
+}
+
 export function mountGradesList(root: Element, data: Bootstrap): void {
 	const period = data.period;
 	let account: GradebookCacheAccount | null = null;
+	let currentGradebook: Gradebook | null = null;
+	let currentFetchedAt = 0;
+	let currentPeriod = period;
+	let currentIndex: number | null = null;
+	let destroyCourseDetail: (() => void) | null = null;
+
+	function loadedPeriod(gradebook = currentGradebook): string {
+		return currentPeriod || gradebook?.reportingPeriod?.index || "";
+	}
+
+	function sameTerm(url: URL, gradebook = currentGradebook): boolean {
+		const requested = url.searchParams.get("period") ?? "";
+		if (!requested) return true;
+		const loaded = loadedPeriod(gradebook);
+		return !loaded || requested === loaded;
+	}
+
+	function closeCommandDialog(): void {
+		const dialog = document.querySelector<HTMLElement>("[data-command-dialog]");
+		const input = document.querySelector<HTMLInputElement>("[data-command-input]");
+		dialog?.classList.add("hidden");
+		dialog?.classList.remove("flex");
+		if (input) input.value = "";
+	}
+
+	function showCourse(index: number, gradebook: Gradebook, fetchedAt: number, push = false): boolean {
+		const course = gradebook.courses[index];
+		if (!course) return false;
+		closeCommandDialog();
+		destroyCourseDetail?.();
+		currentGradebook = gradebook;
+		currentFetchedAt = fetchedAt;
+		currentIndex = index;
+		currentPeriod = loadedPeriod(gradebook);
+		fillGradebookChrome(gradebook, currentPeriod, index);
+		destroyCourseDetail = mountCourseDetail(root, {
+			course,
+			index,
+			period: currentPeriod,
+			fetchedAt,
+		});
+		root.classList.remove("course-content-enter");
+		void (root as HTMLElement).offsetWidth;
+		root.classList.add("course-content-enter");
+		document.title = `${course.title} · Grade Viewer`;
+		if (push) {
+			const query = currentPeriod ? `?period=${encodeURIComponent(currentPeriod)}` : "";
+			history.pushState({ courseIndex: index }, "", `/grades/${index}${query}`);
+		}
+		return true;
+	}
+
+	function showList(gradebook: Gradebook, fetchedAt: number, warning = "", loading = false, push = false): void {
+		closeCommandDialog();
+		destroyCourseDetail?.();
+		destroyCourseDetail = null;
+		currentGradebook = gradebook;
+		currentFetchedAt = fetchedAt;
+		currentIndex = null;
+		currentPeriod = loadedPeriod(gradebook);
+		fillGradebookChrome(gradebook, currentPeriod, undefined, loading);
+		root.innerHTML = renderList(gradebook, fetchedAt, currentPeriod, warning, loading);
+		root.querySelector("[data-refresh]")?.addEventListener("click", () => void load(true, true));
+		document.title = "Grades · Grade Viewer";
+		if (push) {
+			const query = currentPeriod ? `?period=${encodeURIComponent(currentPeriod)}` : "";
+			history.pushState({}, "", `/grades${query}`);
+		}
+	}
 
 	function paint(gradebook: Gradebook, fetchedAt: number, warning = "", loading = false) {
-		if (account && gradebook.courses.length) writeLocalGradebook(account, gradebook, fetchedAt, period);
-		fillGradebookChrome(gradebook, period);
-		root.innerHTML = renderList(gradebook, fetchedAt, period, warning, loading);
-		root.querySelector("[data-refresh]")?.addEventListener("click", () => void load(true, true));
+		if (account && gradebook.courses.length) writeLocalGradebook(account, gradebook, fetchedAt, period || loadedPeriod(gradebook));
+		if (currentIndex != null && gradebook.courses[currentIndex]) {
+			showCourse(currentIndex, gradebook, fetchedAt);
+			return;
+		}
+		showList(gradebook, fetchedAt, warning, loading);
+	}
+
+	function handleGradesNavigation(event: MouseEvent): boolean {
+		if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+		const target = event.target;
+		if (!(target instanceof Element)) return false;
+		const link = target.closest("a");
+		if (!(link instanceof HTMLAnchorElement) || !currentGradebook) return false;
+		if (link.target && link.target !== "_self") return false;
+		const url = new URL(link.href, location.href);
+		if (url.origin !== location.origin || !sameTerm(url)) return false;
+		const index = courseIndexFromPath(url.pathname);
+		if (index != null) {
+			if (!currentGradebook.courses[index]) return false;
+			event.preventDefault();
+			if (index !== currentIndex) showCourse(index, currentGradebook, currentFetchedAt, true);
+			else closeCommandDialog();
+			return true;
+		}
+		if (isGradesListPath(url.pathname) && currentIndex != null) {
+			event.preventDefault();
+			showList(currentGradebook, currentFetchedAt, "", false, true);
+			return true;
+		}
+		return false;
 	}
 
 	async function load(refresh: boolean, fromCache: boolean) {
-		if (!fromCache) {
+		if (!fromCache && currentIndex == null) {
 			root.innerHTML = loadingHtml("Loading grades…");
-		} else if (account) {
+		} else if (fromCache && account && currentIndex == null) {
 			const previous = readLocalGradebook(account, period);
 			if (previous) paint(previous.gradebook, previous.fetchedAt, "", true);
 		}
@@ -367,7 +480,7 @@ export function mountGradesList(root: Element, data: Bootstrap): void {
 				const message = payload.error || "Could not load the gradebook.";
 				const previous = account ? readLocalGradebook(account, period) : null;
 				if (previous) paint(previous.gradebook, previous.fetchedAt, message);
-				else root.innerHTML = errorHtml(message);
+				else if (currentIndex == null) root.innerHTML = errorHtml(message);
 				return;
 			}
 			if (refresh) {
@@ -381,7 +494,7 @@ export function mountGradesList(root: Element, data: Bootstrap): void {
 			const message = error instanceof Error ? error.message : "Could not load the gradebook.";
 			const previous = account ? readLocalGradebook(account, period) : null;
 			if (previous) paint(previous.gradebook, previous.fetchedAt, message);
-			else root.innerHTML = errorHtml(message);
+			else if (currentIndex == null) root.innerHTML = errorHtml(message);
 		}
 	}
 
@@ -389,6 +502,14 @@ export function mountGradesList(root: Element, data: Bootstrap): void {
 		const session = await getSession();
 		if (!session) redirectToLogin();
 		account = gradebookCacheAccount(session.creds);
+		document.addEventListener("click", handleGradesNavigation);
+		window.addEventListener("popstate", () => {
+			if (!currentGradebook) return;
+			const index = courseIndexFromPath(location.pathname);
+			if (index != null) showCourse(index, currentGradebook, currentFetchedAt);
+			else if (isGradesListPath(location.pathname)) showList(currentGradebook, currentFetchedAt);
+			else location.reload();
+		});
 		const previous = readLocalGradebook(account, period);
 		if (previous) {
 			paint(previous.gradebook, previous.fetchedAt);

@@ -15,11 +15,10 @@ const signedInPage =
 <footer class="mt-auto border-t border-border">
 	<div class={`mx-auto flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 text-xs text-muted-foreground ${pathname === '/' ? 'max-w-5xl' : 'max-w-3xl'}`}>
 		{compact ? (
-			<p>Grade Viewer is a pass-through to StudentVUE.</p>
+			<p>Grade Viewer talks to StudentVUE from your browser.</p>
 		) : (
 			<p>
-				This app only relays your request to StudentVUE. We don’t keep a copy of your password or
-				grades.
+				Your browser talks to StudentVUE. We don’t keep a copy of your password or grades.
 			</p>
 		)}
 		<nav class="flex items-center gap-3">

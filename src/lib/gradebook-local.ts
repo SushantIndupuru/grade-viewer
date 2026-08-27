@@ -68,6 +68,24 @@ function isRenderableGradebook(value: unknown): value is Gradebook {
 	);
 }
 
+function validSnapshot(value: unknown): LocalGradebook | null {
+	if (!value || typeof value !== "object") return null;
+	const snapshot = value as LocalGradebook;
+	if (
+		!Number.isFinite(snapshot.fetchedAt) ||
+		snapshot.fetchedAt <= 0 ||
+		!isRenderableGradebook(snapshot.gradebook)
+	) {
+		return null;
+	}
+	return snapshot;
+}
+
+function snapshotMatchesPeriod(snapshot: LocalGradebook, period: string): boolean {
+	if (!period) return true;
+	return snapshot.period === period || snapshot.gradebook.reportingPeriod?.index === period;
+}
+
 function isCacheForAccount(
 	value: unknown,
 	account: GradebookCacheAccount,
@@ -109,17 +127,20 @@ export function readLocalGradebook(
 	account: GradebookCacheAccount,
 	period: string,
 ): LocalGradebook | null {
-	const snapshot = readAccountCache(account)?.periods[periodKey(period)];
-	if (!snapshot) return null;
-	if (
-		!Number.isFinite(snapshot.fetchedAt) ||
-		snapshot.fetchedAt <= 0 ||
-		!isRenderableGradebook(snapshot.gradebook)
-	) {
+	const cache = readAccountCache(account);
+	if (!cache) return null;
+	const exact = cache.periods[periodKey(period)];
+	if (exact) {
+		const snapshot = validSnapshot(exact);
+		if (snapshot) return snapshot;
 		removeAccountCache(account);
 		return null;
 	}
-	return snapshot;
+	for (const candidate of Object.values(cache.periods)) {
+		const snapshot = validSnapshot(candidate);
+		if (snapshot && snapshotMatchesPeriod(snapshot, period)) return snapshot;
+	}
+	return null;
 }
 
 export function peekLocalGradebook(

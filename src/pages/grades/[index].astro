@@ -47,8 +47,7 @@ const payload = JSON.stringify({
 		isSessionExpired,
 		spinnerHtml,
 	} from '../../components/grades-list';
-	import { gradebookCacheAccount, readLocalGradebook } from '../../lib/gradebook-local';
-	import { gradebookNeedsBackgroundRefresh } from '../../lib/grades/cache-policy';
+	import { gradebookCacheAccount, peekLocalGradebook, readLocalGradebook } from '../../lib/gradebook-local';
 	import { getSession, sendToLogin } from '../../lib/session';
 	import type { Course, Gradebook } from '../../lib/studentvue/types';
 
@@ -131,7 +130,7 @@ const payload = JSON.stringify({
 			if (!session) sendToLogin();
 			const account = gradebookCacheAccount(session.creds);
 			const previous = readLocalGradebook(account, period);
-			const fresh = !data.refresh && previous && !gradebookNeedsBackgroundRefresh(previous.fetchedAt) ? previous : null;
+			const fresh = !data.refresh ? peekLocalGradebook(account, period) ?? null : null;
 			const cached = fresh ?? previous;
 			const course = cached?.gradebook.courses[currentIndex] ?? null;
 

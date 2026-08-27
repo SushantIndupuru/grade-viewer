@@ -11,11 +11,9 @@ if (Astro.url.searchParams.has('error')) {
 	const query = params.toString();
 	return Astro.redirect(query ? `/login?${query}` : '/login');
 }
-
-const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 ---
 
-<Layout title="Grade Viewer" description="View StudentVUE grades without storing your password or gradebook. Encrypted login stays on this device. Open source.">
+<Layout title="Grade Viewer" description="View StudentVUE grades, mail, attendance, and documents in your browser. Encrypted login stays on this device. Open source.">
 	<header class="border-b border-border">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
 			<p class="font-medium">Grade Viewer</p>
@@ -54,12 +52,13 @@ const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 	<main class="mx-auto w-full max-w-5xl flex-1 px-4 pt-12 pb-20">
 		<section class="max-w-2xl">
 			<p class="text-sm text-muted-foreground">
-				Open source · encrypted on this device · we keep nothing
+				Open source · encrypted on this device · no password or gradebook on our servers
 			</p>
 			<h1 class="mt-3 text-4xl font-medium tracking-tight sm:text-5xl">See your grades. Try what-if scores.</h1>
 			<p class="mt-4 text-base leading-relaxed text-muted-foreground">
-				A pass-through to StudentVUE. See course grades and assignment impact, then try what-if
-				scores that never leave this browser and are never sent back to the district.
+				A StudentVUE viewer that runs in your browser. See course grades and assignment impact, then
+				try what-if scores that never leave this device and are never sent back to the district. Mail,
+				attendance, and documents from StudentVUE are here too.
 			</p>
 			<p class="mt-8 flex flex-wrap items-center gap-2">
 				<a
@@ -90,7 +89,8 @@ const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 		<section class="mt-12" aria-labelledby="trust-heading">
 			<h2 id="trust-heading" class="text-lg font-medium">Your login stays on this device</h2>
 			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-				We don’t keep a password or gradebook. You can verify that in the&nbsp;
+				We don’t keep a password or gradebook. A hashed usage ID is the only student-related thing we
+				store. You can verify that in the&nbsp;
 				<a class="underline" href="/privacy">privacy note</a>
 				&nbsp;and the&nbsp;
 				<a class="underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">source</a>.
@@ -105,7 +105,7 @@ const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 					<h3 class="mt-3 text-sm font-medium">Encrypted on this device</h3>
 					<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
 						After you sign in, this browser keeps an encrypted copy of your StudentVUE login. The
-						key never leaves this device. Sign out and it’s gone.
+						key never leaves this device. Sign out, and the saved login is deleted.
 					</p>
 				</li>
 				<li class="rounded-lg border border-border p-4">
@@ -115,10 +115,11 @@ const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 						<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
 						<line x1="2" x2="22" y1="2" y2="22"></line>
 					</svg>
-					<h3 class="mt-3 text-sm font-medium">We keep nothing</h3>
+					<h3 class="mt-3 text-sm font-medium">No student database</h3>
 					<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-						No student accounts, no gradebook copies, no password database. The server only relays
-						your request to StudentVUE. What-if scores are never written back.
+						No StudentVUE accounts, no gradebook copies, no password database. Your browser talks to
+						StudentVUE over HTTPS. We only store a hashed usage ID so we can count unique sign-ins.
+						What-if scores are never written back.
 					</p>
 				</li>
 				<li>
@@ -133,8 +134,8 @@ const sourceHost = SOURCE_URL.replace(/^https:\/\//, '');
 						</svg>
 						<h3 class="mt-3 text-sm font-medium">Proudly open source</h3>
 						<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-							We’ve got nothing to hide. Click here to read how sign-in, the StudentVUE relay, and local what-if
-							scores work.
+							We’ve got nothing to hide. Click here to read how sign-in, the encrypted StudentVUE
+							connection, and local what-if scores work.
 						</p>
 					</a>
 				</li>

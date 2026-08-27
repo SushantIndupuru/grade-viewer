@@ -52,6 +52,13 @@ test("persists renderable gradebooks by normalized district, account, and period
 	assert.equal(readLocalGradebook(other, "1"), null);
 });
 
+test("reuses a default-term snapshot when the class page asks for that reporting period", () => {
+	const account = gradebookCacheAccount({ districtUrl: "https://district.example.org", username: "student" });
+	writeLocalGradebook(account, gradebook, 1234);
+	assert.deepEqual(readLocalGradebook(account, "1"), { period: "1", fetchedAt: 1234, gradebook });
+	assert.equal(readLocalGradebook(account, "2"), null);
+});
+
 test("never writes credentials and never replaces a valid cache with an empty gradebook", () => {
 	const account = gradebookCacheAccount({ districtUrl: "https://district.example.org", username: "student" });
 	writeLocalGradebook(account, gradebook, 1234);

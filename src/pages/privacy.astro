@@ -10,7 +10,7 @@ import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
 			<BackLink href="/" label="Back" />
 			<h1 class="text-xl font-medium">Privacy</h1>
 		</div>
-		<p class="mt-3 text-sm text-muted-foreground">Last updated August 24, 2026</p>
+		<p class="mt-3 text-sm text-muted-foreground">Last updated August 27, 2026</p>
 
 		<div class="mt-8 space-y-6 text-sm leading-relaxed text-muted-foreground">
 			<p>
@@ -24,42 +24,65 @@ import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
 			<h2 class="text-base font-medium text-foreground">This app talks to StudentVUE from your browser</h2>
 			<p>
 				When you sign in, <strong class="font-medium text-foreground">your browser talks to
-				StudentVUE directly</strong>. There is no Grade Viewer server in the middle that sees
-				your login or your grades. Your password, email, gradebook, documents, mail, and
-				attendance go from this device to your school’s StudentVUE system—not to us.
+				StudentVUE over HTTPS</strong>. Grade Viewer’s website does not receive your password,
+				gradebook, documents, mail, or attendance. Those stay between this device and your
+				school’s StudentVUE system.
 			</p>
 			<p>
-				We only host the website files. We cannot read your StudentVUE data on our servers
-				because it never gets sent there. What-if / hypothetical scores stay on this device too.
+				Browsers block some of those StudentVUE connections, so a small relay forwards the
+				encrypted connection to Edupoint hosts. The relay can see that a connection to StudentVUE
+				happened. It does not decrypt your login or grades. What-if / hypothetical scores stay on
+				this device and are never sent to StudentVUE or to us.
 			</p>
 
 			<h2 class="text-base font-medium text-foreground">Usage counts</h2>
 			<p>
 				We want a rough idea of how many people use Grade Viewer. We do <strong
-					class="font-medium text-foreground">not</strong> get your email address.
+					class="font-medium text-foreground">not</strong> get your email address, password, or
+				grades.
 			</p>
 			<p>
-				Instead, your browser scrambles your email into a random-looking ID, then sends us only
-				that ID and the time you signed in. Same person, same ID, so we can count unique users.
-				Nobody (including us) can turn that ID back into your email. We never get your password or
-				grades for this. Sign-in needs this step to finish.
+				Instead, your browser turns your email into a one-way ID, then sends us only that ID. We
+				store the ID and the time you signed in so we can count unique users. Nobody (including
+				us) can turn that ID back into your email. Sign-in needs this step to finish. Later visits
+				may refresh the last-seen time for the same ID.
 			</p>
+
+			<h2 class="text-base font-medium text-foreground">What we store</h2>
+			<ul class="list-disc space-y-2 pl-5">
+				<li>A hashed usage ID and last sign-in time, for counts only.</li>
+				<li>Normal website hosting logs (someone visited the site). We do not use those logs to
+					identify students.</li>
+			</ul>
 
 			<h2 class="text-base font-medium text-foreground">What we don’t keep</h2>
 			<ul class="list-disc space-y-2 pl-5">
 				<li>We do not create StudentVUE accounts or keep a database of grades.</li>
-				<li>We do not get your password, email, or grades on our servers—only the scrambled ID
-					for counts.</li>
+				<li>We do not get your password, email, gradebook, documents, mail, or attendance on our
+					servers—only the hashed usage ID above.</li>
 				<li>We do not sell, share, or look through your gradebook, documents, mail, or attendance.</li>
 				<li>We do not send what-if scores back to StudentVUE or to anyone else.</li>
 			</ul>
 
 			<h2 class="text-base font-medium text-foreground">What stays on your device</h2>
 			<p>
-				After you sign in once, this browser can save an encrypted copy of your StudentVUE login
-				so you don’t have to type your password again. The key for that stays on this device. We
-				do not keep a server login session with your password. Signing out deletes the saved
-				login. Charts and what-if edits live only in this tab until you leave.
+				After you sign in, this browser can save an encrypted copy of your StudentVUE login so you
+				don’t have to type your password again. The encryption key stays on this device and cannot
+				be copied off it. Remember Me keeps that login across visits; without it, it lasts for this
+				browser session. Signing out deletes the saved login.
+			</p>
+			<p>
+				This browser may also keep a local gradebook snapshot so pages load faster, plus mail,
+				documents, and attendance for this tab. Signing out clears those copies. What-if edits live
+				only in this tab until you leave the course page. A theme choice and a profile-picture
+				preference can stay in this browser even after you sign out.
+			</p>
+
+			<h2 class="text-base font-medium text-foreground">What goes back to StudentVUE</h2>
+			<p>
+				What-if scores are local only. Mail actions you take here—marking a message read, deleting
+				it, or moving it—are sent to StudentVUE, the same as in the official app. Grade Viewer does
+				not change the grades your school has on file.
 			</p>
 
 			<h2 class="text-base font-medium text-foreground">Who actually has your grades</h2>
@@ -94,18 +117,18 @@ import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
 
 			<h2 class="text-base font-medium text-foreground">Hosting</h2>
 			<p>
-				Someone has to host the website so you can open it. That host serves the app pages. It
-				does not get your StudentVUE password, email, or grades—only the scrambled usage ID
-				above, and normal “someone visited the site” logs. A small relay helps the browser reach
-				StudentVUE; it sees that a connection happened, not the contents of your login or grades.
-				We do not use those logs to identify students.
+				Someone has to host the website so you can open it. That host serves the app pages and
+				receives the hashed usage ID above. It does not get your StudentVUE password, email, or
+				grades. A small relay helps the browser reach StudentVUE; it sees that an encrypted
+				connection happened, not the contents of your login or grades.
 			</p>
 
 			<h2 class="text-base font-medium text-foreground">Questions</h2>
 			<p>
-				If you did not mean to use this tool, sign out. That clears the saved login on this
-				device. You can also close the tab. We may keep the scrambled ID and last sign-in time for
-				counts only. We do not keep your password or gradebook.
+				If you did not mean to use this tool, sign out. That clears the saved login and the local
+				grade, mail, document, and attendance copies on this device. You can also close the tab. We
+				may keep the hashed ID and last sign-in time for counts only. We do not keep your password
+				or gradebook.
 			</p>
 			<p>
 				For feedback, problems, or other questions, email
