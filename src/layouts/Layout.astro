@@ -48,7 +48,7 @@ const theme = isTheme(themeCookie) ? themeCookie : null;
 	</head>
 	<body class="flex min-h-screen flex-col bg-background text-foreground">
 		{Astro.slots.has('sidebar') ? (
-			<div class="flex min-h-0 flex-1">
+			<div class="min-h-0 flex-1 md:flex">
 				<slot name="sidebar" />
 				<div class="flex min-h-0 min-w-0 flex-1 flex-col">
 					<slot />

@@ -210,7 +210,7 @@ export function fillCourseNav(
 			const title = displayCourseTitle(course.title);
 			const active = index === activeIndex;
 			return `<li class="min-w-0">
-				<a href="/grades/${index}${periodQuery}" class="block truncate rounded-md px-2 py-1.5 text-sm no-underline ${
+				<a href="/grades/${index}${periodQuery}" class="flex min-h-11 items-center truncate rounded-lg px-3 py-2.5 text-base no-underline md:min-h-0 md:rounded-md md:px-2 md:py-1.5 md:text-sm ${
 					active
 						? "bg-muted font-medium text-foreground"
 						: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"

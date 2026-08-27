@@ -134,6 +134,17 @@ html.dark {
 .sidebar-collapsed [data-grades-home] { justify-content: center; }
 .sidebar-collapsed [data-grades-home] img { margin-left: 0; }
 
+@media (max-width: 767px) {
+	.sidebar-collapsed [data-sidebar-full],
+	.sidebar-collapsed [data-sidebar-label] { display: revert; }
+
+	.sidebar-collapsed nav a,
+	.sidebar-collapsed summary,
+	.sidebar-collapsed [data-grades-home] { justify-content: flex-start; }
+
+	.sidebar-collapsed [data-grades-home] img { margin-left: 0.5rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.grade-cache-reveal { animation: none; }
 	.course-content-enter { animation: none; }
