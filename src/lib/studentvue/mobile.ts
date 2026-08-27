@@ -1,5 +1,11 @@
 import type { Credentials } from "./types";
-import { normalizeDistrictUrl, studentVueFetch, StudentVueError } from "./client";
+import {
+	isStudentVueUnavailable,
+	normalizeDistrictUrl,
+	studentVueFailure,
+	studentVueFetch,
+	StudentVueError,
+} from "./client";
 
 const USER_AGENT = "StudentVUE/2.0.16 CFNetwork/3860.700.1 Darwin/25.6.0";
 const KEY_VERSION = "bOpVYcir6oyLwz0Ymg8kCDMUNaHbLy5yLJJK/3LgToU=";
@@ -77,8 +83,8 @@ async function mobilePost<T>(
 	if (json && typeof json.error === "object" && json.error) {
 		throw apiError(json, response.status);
 	}
-	if (!response.ok) {
-		throw new StudentVueError(`StudentVUE returned HTTP ${response.status}.`, response.status);
+	if (!response.ok || isStudentVueUnavailable(response.status, text)) {
+		throw studentVueFailure(response.status, text);
 	}
 	return (json ?? {}) as T;
 }

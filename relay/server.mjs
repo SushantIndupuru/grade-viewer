@@ -2,7 +2,7 @@ import http from "node:http";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
 const PORT = Number(process.env.PORT || 5001);
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 const ALLOWED_ORIGINS = new Set(
 	(process.env.ALLOWED_ORIGINS ||
 		"https://gradeviewer.org,https://www.gradeviewer.org,http://localhost:4321,http://127.0.0.1:4321")

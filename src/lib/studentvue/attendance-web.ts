@@ -1,4 +1,10 @@
-import { normalizeDistrictUrl, studentVueFetch, StudentVueError } from "./client";
+import {
+	isStudentVueUnavailable,
+	normalizeDistrictUrl,
+	studentVueFailure,
+	studentVueFetch,
+	StudentVueError,
+} from "./client";
 import { generateAuthToken } from "./mobile";
 import type {
 	Attendance,
@@ -252,8 +258,8 @@ async function fetchCalendarDay(
 		body: JSON.stringify({ agu: 0, date }),
 	});
 	const text = await response.text();
-	if (!response.ok) {
-		throw new StudentVueError(`Attendance day request failed (${response.status})`, response.status);
+	if (!response.ok || isStudentVueUnavailable(response.status, text)) {
+		throw studentVueFailure(response.status, text);
 	}
 	try {
 		return JSON.parse(text) as unknown;
@@ -276,8 +282,8 @@ export async function getWebAttendance(creds: Credentials): Promise<Attendance> 
 		redirect: "follow",
 	});
 	const html = await page.text();
-	if (!page.ok) {
-		throw new StudentVueError(`Attendance page returned HTTP ${page.status}`, page.status);
+	if (!page.ok || isStudentVueUnavailable(page.status, html)) {
+		throw studentVueFailure(page.status, html);
 	}
 	const cookies = mergeCookies("", page);
 	const marked = markedDaysFromPage(html);

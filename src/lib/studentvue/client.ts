@@ -20,6 +20,35 @@ export class StudentVueError extends Error {
 	}
 }
 
+const STUDENTVUE_DOWN =
+	"StudentVUE is currently unavailable. The district portal is likely down for maintenance — try again later.";
+
+function looksLikeHtml(body: string): boolean {
+	const start = body.trimStart().slice(0, 256);
+	return /^<!DOCTYPE\s+html/i.test(start) || /^<html[\s>]/i.test(start);
+}
+
+export function isStudentVueUnavailable(status: number, body: string): boolean {
+	if (status === 401 || status === 403) return false;
+	const sample = body.slice(0, 4000);
+	if (/under\s*maintenance|scheduled\s*maintenance|temporarily\s+unavailable/i.test(sample)) {
+		return true;
+	}
+	if (/HTTP verb used to access this page is not allowed|Server Error in .+ Application/i.test(sample)) {
+		return true;
+	}
+	if (status === 405 || status === 502 || status === 503) return true;
+	return status >= 400 && looksLikeHtml(body);
+}
+
+/** Maps Edupoint HTML/IIS outages to a readable error instead of dumping markup. */
+export function studentVueFailure(status: number, body = ""): StudentVueError {
+	if (isStudentVueUnavailable(status, body)) {
+		return new StudentVueError(STUDENTVUE_DOWN, status);
+	}
+	return new StudentVueError(`StudentVUE returned HTTP ${status}.`, status);
+}
+
 const STUDENTVUE_TIMEOUT_MS = 30_000;
 
 async function resolveFetch(): Promise<(input: string, init?: RequestInit) => Promise<Response>> {
@@ -40,7 +69,10 @@ export async function studentVueFetch(url: string, init: RequestInit = {}): Prom
 		});
 	} catch (error) {
 		if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-			throw new StudentVueError(`StudentVUE timed out after ${STUDENTVUE_TIMEOUT_MS / 1000}s`, 504);
+			throw new StudentVueError(
+				`StudentVUE did not respond in time. The district portal may be down — try again later.`,
+				504,
+			);
 		}
 		throw new StudentVueError(
 			error instanceof Error ? error.message : "Could not reach StudentVUE",
@@ -95,8 +127,8 @@ export async function processRequest(
 	});
 
 	const xml = await response.text();
-	if (!response.ok) {
-		throw new StudentVueError(`StudentVUE returned HTTP ${response.status}.`, response.status);
+	if (!response.ok || isStudentVueUnavailable(response.status, xml)) {
+		throw studentVueFailure(response.status, xml);
 	}
 
 	const resultRaw =
