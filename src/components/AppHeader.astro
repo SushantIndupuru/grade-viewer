@@ -14,8 +14,8 @@ const isCoursePage = /^\/grades\/\d+\/?$/.test(Astro.url.pathname);
 ---
 
 <header class:list={[
-	'sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-card/60 p-2 backdrop-blur',
-	isCoursePage ? 'min-h-[76px]' : 'min-h-14 md:min-h-[53px]',
+	'sticky top-0 z-30 flex items-center gap-1.5 border-b border-border bg-card/60 p-2 backdrop-blur sm:gap-2',
+	isCoursePage ? 'min-h-14 sm:min-h-[76px]' : 'min-h-14 md:min-h-[53px]',
 ]}>
 	<button
 		type="button"
@@ -30,9 +30,38 @@ const isCoursePage = /^\/grades\/\d+\/?$/.test(Astro.url.pathname);
 	<button type="button" class="hidden size-7 items-center justify-center rounded-md hover:bg-muted md:flex" data-sidebar-toggle aria-label="Collapse sidebar">
 		<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path></svg>
 	</button>
-	<div class="flex min-w-0 flex-1 items-center justify-between gap-4 pr-2">
-		<p class:list={['truncate font-semibold tracking-tight text-foreground/80', isCoursePage && 'text-xl sm:text-2xl']} data-page-title>{section === 'grades' ? 'Grades' : section === 'mail' ? 'Mail' : section === 'attendance' ? 'Attendance' : section === 'student-info' ? 'Student Info' : 'Documents'}</p>
-		<p class="shrink-0 text-xl font-semibold tabular-nums text-foreground/80 sm:text-2xl" data-page-grade hidden></p>
+	<div class="flex min-w-0 flex-1 items-center justify-between gap-2 pr-1 sm:gap-4 sm:pr-2">
+		<div class="flex min-w-0 items-center gap-0.5 sm:gap-1">
+			{section === 'grades' && (
+				<a
+					class="inline-flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground no-underline hover:bg-muted hover:text-foreground"
+					href={`/grades${periodQuery}`}
+					aria-label="Back to grades"
+					title="Back to grades"
+					data-course-back
+					data-grades-home
+					hidden={!isCoursePage}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path d="m15 18-6-6 6-6"></path>
+					</svg>
+				</a>
+			)}
+			<p class:list={['min-w-0 truncate font-semibold tracking-tight text-foreground/80', isCoursePage && 'text-base sm:text-xl lg:text-2xl']} data-page-title>{section === 'grades' ? 'Grades' : section === 'mail' ? 'Mail' : section === 'attendance' ? 'Attendance' : section === 'student-info' ? 'Student Info' : 'Documents'}</p>
+		</div>
+		<p class="shrink-0 text-lg font-semibold tabular-nums text-foreground/80 sm:text-xl lg:text-2xl" data-page-grade hidden></p>
 		<div class:list={[isCoursePage ? 'hidden' : 'ml-auto flex items-center gap-2']} data-header-actions>
 			<button type="button" class="ml-auto hidden size-11 items-center justify-center rounded-md border border-input bg-background p-0 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:h-9 md:w-auto md:px-3" data-command-trigger aria-label="Search classes and assignments">
 				<svg class="size-4 md:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><span class="hidden items-center gap-1.5 md:flex"><kbd class="font-sans text-xs">⌘</kbd><span class="text-muted-foreground/70">+</span><kbd class="font-sans text-xs">K</kbd></span>

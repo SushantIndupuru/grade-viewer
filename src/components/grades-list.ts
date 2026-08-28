@@ -239,8 +239,11 @@ export function fillGradebookChrome(
 	}
 	if (actions) actions.classList.toggle("hidden", activeIndex != null);
 	fillCommandSearch(gradebook, selected, activeIndex);
-	const home = document.querySelector<HTMLAnchorElement>("header a[href^='/grades']");
-	if (home) home.href = selected ? `/grades?period=${encodeURIComponent(selected)}` : "/grades";
+	const home = document.querySelector<HTMLAnchorElement>("[data-course-back]");
+	if (home) {
+		home.toggleAttribute("hidden", activeIndex == null);
+		home.href = selected ? `/grades?period=${encodeURIComponent(selected)}` : "/grades";
+	}
 	return selected;
 }
 
@@ -286,10 +289,14 @@ function courseGradeHtml(course: Course): string {
 	const letter = officialLetter(course);
 	const unavailable = course.officialMark.trim().toUpperCase() === "N/A";
 	return `<div class="shrink-0 text-right">
-		<p class="text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
+		<p class="text-lg font-semibold tabular-nums text-foreground sm:text-2xl">
 			${escapeHtml(formatGrade(percent))}${unavailable ? ` <span class="text-muted-foreground">(N/A)</span>` : letter ? ` <span class="text-muted-foreground">(${escapeHtml(letter)})</span>` : ""}
 		</p>
 	</div>`;
+}
+
+function courseProgressBar(progress: number, progressColor: string): string {
+	return `<div class="relative h-2 overflow-hidden rounded-full border border-border bg-muted sm:h-2.5" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><div class="h-full ${progressColor} transition-all" style="width:${progress}%"></div></div>`;
 }
 
 function sourceUpdatedAt(fetchedAt: number): string {
@@ -314,8 +321,8 @@ function renderList(
 	const selected = selectedPeriod || gradebook.reportingPeriods[0]?.index || "";
 	const selectedPeriodLabel = gradebook.reportingPeriods.find((item) => item.index === selected)?.gradePeriod ?? "Select period";
 	const periodSelector = gradebook.reportingPeriods.length
-		? `<div class="flex justify-center">
-			<details class="group/period relative w-60" data-period-select>
+		? `<div class="flex justify-center px-1">
+			<details class="group/period relative w-full max-w-60" data-period-select>
 				<summary class="flex h-10 w-full cursor-pointer list-none items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-transparent ${loading ? "pointer-events-none opacity-50" : ""}" aria-label="Reporting period" ${loading ? 'aria-disabled="true"' : ""}>
 					<span class="truncate">${escapeHtml(selectedPeriodLabel)}</span>${icons.chevronDown("size-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-open/period:rotate-180")}
 				</summary>
@@ -330,23 +337,28 @@ function renderList(
 	const courses =
 		gradebook.courses.length === 0
 			? `<p class="text-sm text-muted-foreground">No courses in this term yet.</p>`
-			: `<ol class="space-y-4"${loading ? ' aria-busy="true"' : ""}>${gradebook.courses
+			: `<ol class="space-y-3 sm:space-y-4"${loading ? ' aria-busy="true"' : ""}>${gradebook.courses
 					.map((course, index) => {
 						const percent = course.officialMark.trim().toUpperCase() === "N/A" ? null : displayPercent(course);
 						const missing = course.assignments.filter((assignment) => assignment.notes.trim().toLowerCase() === "missing").length;
 						const progress = Math.min(Math.max(percent ?? 0, 0), 100);
 						const progressColor = progressFillClass(percent);
+						const progressBar = courseProgressBar(progress, progressColor);
 						return `<li><div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-							<a class="flex min-h-24 items-center gap-5 p-5 text-foreground no-underline outline-none transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" href="/grades/${index}${periodQuery}">
-								<div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary">${escapeHtml(course.period)}</div>
-								<div class="min-w-0 flex-1"><p class="truncate text-lg font-semibold text-foreground sm:text-xl">${escapeHtml(displayCourseTitle(course.title))}</p>${course.teacher || course.room ? `<p class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">${icons.user("size-3.5 shrink-0")}<span class="truncate">${escapeHtml(course.teacher)}${course.teacher && course.room ? " • " : ""}${course.room ? `Room ${escapeHtml(course.room)}` : ""}</span></p>` : ""}</div>
-								<div class="hidden min-w-28 flex-1 px-1 sm:block" aria-label="Course grade progress"><div class="relative h-2.5 overflow-hidden rounded-full border border-border bg-muted" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><div class="h-full ${progressColor} transition-all" style="width:${progress}%"></div></div></div>
-								<div class="shrink-0 text-right">${courseGradeHtml(course)}<p class="mt-1 text-xs ${missing > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}">${missing} missing assignment${missing === 1 ? "" : "s"}</p></div>
+							<a class="flex min-h-[4.5rem] items-center gap-3 p-3.5 text-foreground no-underline outline-none transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-24 sm:gap-5 sm:p-5" href="/grades/${index}${periodQuery}">
+								<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary sm:size-12 sm:text-xl">${escapeHtml(course.period)}</div>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-base font-semibold text-foreground sm:text-xl">${escapeHtml(displayCourseTitle(course.title))}</p>
+									${course.teacher || course.room ? `<p class="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">${icons.user("size-3.5 shrink-0")}<span class="truncate">${escapeHtml(course.teacher)}${course.teacher && course.room ? " • " : ""}${course.room ? `Room ${escapeHtml(course.room)}` : ""}</span></p>` : ""}
+									<div class="mt-2 sm:hidden" aria-label="Course grade progress">${progressBar}</div>
+								</div>
+								<div class="hidden min-w-28 flex-1 px-1 sm:block" aria-label="Course grade progress">${progressBar}</div>
+								<div class="shrink-0 text-right">${courseGradeHtml(course)}<p class="mt-0.5 text-[11px] sm:mt-1 sm:text-xs ${missing > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}">${missing} missing<span class="hidden sm:inline"> assignment${missing === 1 ? "" : "s"}</span></p></div>
 							</a></div></li>`;
 					})
 					.join("")}</ol>`;
 
-	return `<div class="min-h-[calc(100vh-53px)] bg-background px-5 pb-5 md:px-9 md:pb-9 ${!loading ? "grade-cache-reveal" : ""}">${status}${courses}</div>`;
+	return `<div class="min-h-[calc(100vh-53px)] bg-background px-3 pb-4 sm:px-5 sm:pb-5 md:px-9 md:pb-9 ${!loading ? "grade-cache-reveal" : ""}">${status}${courses}</div>`;
 }
 
 function courseIndexFromPath(pathname: string): number | null {

@@ -65,17 +65,24 @@ function progressBar(
 	return `<div class="relative h-3 w-full overflow-hidden rounded-full border border-border ${track}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"${marked}><div class="h-full w-full transition-all ${fill}" data-progress-fill style="transform: ${progressTranslate(percent)};"></div></div>`;
 }
 
+function chartHeightForWidth(width: number): number {
+	if (width < 480) return 196;
+	if (width < 768) return 260;
+	return 340;
+}
+
 function renderChart(points: { date: Date; percent: number }[], containerWidth = 720): string {
 	if (points.length === 0) {
 		return `<p class="px-4 py-8 text-center text-sm text-muted-foreground">The graph will appear after an assignment is graded.</p>`;
 	}
 
 	const width = Math.max(280, Math.round(containerWidth));
-	const height = 340;
-	const padL = 46;
-	const padR = 16;
-	const padT = 18;
-	const padB = 34;
+	const compact = width < 480;
+	const height = chartHeightForWidth(width);
+	const padL = compact ? 40 : 46;
+	const padR = compact ? 12 : 16;
+	const padT = compact ? 12 : 18;
+	const padB = compact ? 28 : 34;
 	const innerW = width - padL - padR;
 	const innerH = height - padT - padB;
 
@@ -112,7 +119,7 @@ function renderChart(points: { date: Date; percent: number }[], containerWidth =
 
 	return `
 		<div class="relative w-full overflow-hidden pb-2" role="group" aria-label="Course grade over time">
-			<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="block h-[340px] w-full touch-none" role="figure">
+			<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="block w-full touch-pan-y" style="height:${height}px" role="figure">
 				${yTicks
 					.map((value) => {
 						const py = y(value);
@@ -191,7 +198,7 @@ function assignmentCard(
 			? `<div class="mt-2 flex justify-between text-xs text-muted-foreground"><span>${assignment.pointsEarned ?? "—"}/${assignment.pointsPossible ?? "—"}</span><span>Not entered</span></div>`
 			: `<div class="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground"><span>${possibleText}</span><span>${extra && assignment.pointsPossible === 0 ? "Extra credit" : formatGrade(percent)}</span></div>`;
 
-	return `<li><div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center">
+	return `<li><div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm sm:flex-row sm:items-center sm:gap-4 sm:p-4">
 			<div class="min-w-0 flex-1">
 				<div class="flex flex-wrap items-center gap-1">
 					${
@@ -330,10 +337,10 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 			.map(({ assignment }) => assignment)
 			.filter((assignment) => tab === "all" || assignment.type === tab);
 		root.innerHTML = `
-			<div class="flex min-h-screen flex-col gap-4 p-4 md:p-6">
+			<div class="flex flex-col gap-4 px-3 py-4 sm:p-4 md:p-6">
 				<div class="min-w-0 overflow-hidden" data-chart-canvas></div>
 				${trendNote}
-				<div class="flex flex-wrap items-center justify-end gap-4">
+				<div class="flex flex-wrap items-center justify-start gap-3 sm:justify-end sm:gap-4">
 					<label class="inline-flex cursor-pointer items-center gap-2 text-sm" for="hypothetical-mode">
 						<span class="relative box-content size-4 shrink-0">
 							<input class="peer box-content size-4 shrink-0 appearance-none rounded-[3px] border border-primary bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 checked:bg-primary disabled:cursor-not-allowed disabled:opacity-50" id="hypothetical-mode" data-hypothetical type="checkbox" ${hypothetical ? "checked" : ""} />
