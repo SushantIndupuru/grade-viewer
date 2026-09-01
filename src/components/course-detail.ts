@@ -1,11 +1,13 @@
 import type { Course } from "../lib/studentvue/types";
 import { icons } from "./icons";
 import {
+	assignmentImpacts,
 	calculateCourse,
 	categoryTypes,
 	emptyAssignment,
 	isExtraCredit,
 	toDraft,
+	type AssignmentImpact,
 	type DraftAssignment,
 } from "../lib/grades/calculate";
 import {
@@ -18,10 +20,21 @@ import {
 	formatGrade,
 	formatShortDate,
 	gradeHistory,
+	impactDisplay,
 	officialLetter,
+	progressFillClass,
 	progressTranslate,
 	uniqueCategories,
 } from "../lib/grades/display";
+
+const GRADE_TWEEN_MS = 750;
+
+function easeGrade(elapsed: number): number {
+	return 1 - Math.pow(1 - elapsed, 5);
+}
+
+type ChartPoint = { date: Date; percent: number };
+type ChartDomain = { minY: number; maxY: number };
 
 interface Bootstrap {
 	course: Course;
@@ -71,7 +84,31 @@ function chartHeightForWidth(width: number): number {
 	return 340;
 }
 
-function renderChart(points: { date: Date; percent: number }[], containerWidth = 720): string {
+function chartDomain(points: ChartPoint[]): ChartDomain {
+	const ys = points.map((point) => point.percent);
+	const range = Math.max(...ys) - Math.min(...ys);
+	const gradePadding = Math.max(3, range * 0.18);
+	const minY = Math.max(0, Math.floor(Math.min(...ys) - gradePadding));
+	const maxY = Math.max(...ys) <= 100 ? 100 : Math.ceil(Math.max(...ys) + gradePadding);
+	return { minY, maxY: Math.max(minY + 1, maxY) };
+}
+
+function interpolateChart(from: ChartPoint[], to: ChartPoint[], t: number): ChartPoint[] {
+	if (from.length === to.length) {
+		return to.map((point, index) => ({
+			date: point.date,
+			percent: from[index].percent + (point.percent - from[index].percent) * t,
+		}));
+	}
+	const fromByTime = new Map(from.map((point) => [point.date.getTime(), point.percent]));
+	return to.map((point) => {
+		const previous = fromByTime.get(point.date.getTime());
+		if (previous == null) return point;
+		return { date: point.date, percent: previous + (point.percent - previous) * t };
+	});
+}
+
+function renderChart(points: ChartPoint[], containerWidth = 720, domain?: ChartDomain): string {
 	if (points.length === 0) {
 		return `<p class="px-4 py-8 text-center text-sm text-muted-foreground">The graph will appear after an assignment is graded.</p>`;
 	}
@@ -86,11 +123,7 @@ function renderChart(points: { date: Date; percent: number }[], containerWidth =
 	const innerW = width - padL - padR;
 	const innerH = height - padT - padB;
 
-	const ys = points.map((point) => point.percent);
-	const range = Math.max(...ys) - Math.min(...ys);
-	const gradePadding = Math.max(3, range * 0.18);
-	const minY = Math.max(0, Math.floor(Math.min(...ys) - gradePadding));
-	const maxY = Math.max(...ys) <= 100 ? 100 : Math.ceil(Math.max(...ys) + gradePadding);
+	const { minY, maxY } = domain ?? chartDomain(points);
 	const safeYRange = Math.max(1, maxY - minY);
 
 	const times = points.map((point) => point.date.getTime()).filter(Number.isFinite);
@@ -164,6 +197,7 @@ function assignmentCard(
 	tab: string,
 	hypothetical: boolean,
 	weightLabels: Record<string, string>,
+	impact: AssignmentImpact | null,
 ): string {
 	const extra = isExtraCredit(assignment);
 	const notScored = assignment.ungraded || assignment.pointsEarned == null;
@@ -181,7 +215,7 @@ function assignmentCard(
 		}).join("")}</select></label>`
 		: "";
 	const barPercent = percent == null ? null : Math.min(Math.max(percent, 0), 100);
-	const fill = "bg-primary";
+	const fill = progressFillClass(percent, extra);
 	const track = "bg-muted";
 
 	const possibleText = extra
@@ -191,12 +225,14 @@ function assignmentCard(
 				? `${assignment.pointsPossible}`
 				: ""
 			: `${assignment.pointsEarned}/${assignment.pointsPossible}`;
+	const shown = impactDisplay(impact);
+	const impactHtml = `<span class="${shown.className}" data-impact="${index}" title="Change in overall course grade from this assignment">${shown.text}</span>`;
 
 	const scores = hypothetical
 		? `<div class="mt-2 flex items-center gap-1.5">${scoreStepper("earned", index, "Points earned", assignment.pointsEarned)}<span class="text-muted-foreground">/</span>${scoreStepper("possible", index, "Points possible", assignment.pointsPossible)}</div>`
 		: notScored
-			? `<div class="mt-2 flex justify-between text-xs text-muted-foreground"><span>${assignment.pointsEarned ?? "—"}/${assignment.pointsPossible ?? "—"}</span><span>Not entered</span></div>`
-			: `<div class="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground"><span>${possibleText}</span><span>${extra && assignment.pointsPossible === 0 ? "Extra credit" : formatGrade(percent)}</span></div>`;
+			? `<div class="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>${assignment.pointsEarned ?? "—"}/${assignment.pointsPossible ?? "—"}</span><span>Not entered</span></div>`
+			: `<div class="mt-2 flex items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground"><span>${possibleText}</span><span>${extra && assignment.pointsPossible === 0 ? "Extra credit" : formatGrade(percent)}</span></div>`;
 
 	return `<li><div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm sm:flex-row sm:items-center sm:gap-4 sm:p-4">
 			<div class="min-w-0 flex-1">
@@ -206,6 +242,7 @@ function assignmentCard(
 							? `<input data-name="${index}" class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" value="${escapeHtml(assignment.name)}" />`
 							: `<p class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">${escapeHtml(assignment.name)}</p>`
 					}
+					${impactHtml}
 					${popover("Teacher comments", assignment.notes, icons.message("size-3.5"))}
 				</div>
 				<div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -251,6 +288,9 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 	let tab = "all";
 	let chartObserver: ResizeObserver | null = null;
 	let gradeAnimationFrame: number | null = null;
+	let chartAnimationFrame: number | null = null;
+	let displayedChart: ChartPoint[] = [];
+	let chartYDomain: ChartDomain | null = null;
 
 	function assignments(): DraftAssignment[] {
 		return hypothetical ? draft : official;
@@ -274,10 +314,9 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 			return;
 		}
 		const startedAt = performance.now();
-		const duration = 750;
 		const tick = (now: number) => {
-			const elapsed = Math.min(1, (now - startedAt) / duration);
-			const eased = 1 - Math.pow(1 - elapsed, 5);
+			const elapsed = Math.min(1, (now - startedAt) / GRADE_TWEEN_MS);
+			const eased = easeGrade(elapsed);
 			const value = previous + (percent - previous) * eased;
 			grade.textContent = formatGrade(value, 1);
 			if (elapsed < 1) gradeAnimationFrame = requestAnimationFrame(tick);
@@ -289,23 +328,61 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 		gradeAnimationFrame = requestAnimationFrame(tick);
 	}
 
-	function drawChart(list: DraftAssignment[]): void {
+	function paintChart(host: HTMLElement): void {
+		const width = Math.max(280, Math.round(host.getBoundingClientRect().width));
+		host.innerHTML = renderChart(displayedChart, width, chartYDomain ?? undefined);
+	}
+
+	function drawChart(list: DraftAssignment[], animate = false): void {
 		chartObserver?.disconnect();
+		if (chartAnimationFrame != null) {
+			cancelAnimationFrame(chartAnimationFrame);
+			chartAnimationFrame = null;
+		}
 		const host = root.querySelector<HTMLElement>("[data-chart-canvas]");
 		if (!host) return;
-		const points = gradeHistory(data.course, list);
-		let previousWidth = 0;
-		const paint = () => {
-			const width = Math.max(280, Math.round(host.getBoundingClientRect().width));
-			if (width === previousWidth) return;
-			previousWidth = width;
-			host.innerHTML = renderChart(points, width);
-		};
-		requestAnimationFrame(paint);
-		if (typeof ResizeObserver !== "undefined") {
-			chartObserver = new ResizeObserver(paint);
+		const target = gradeHistory(data.course, list).map((point) => ({ date: point.date, percent: point.percent }));
+		const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const canAnimate =
+			animate && !reduced && displayedChart.length > 0 && target.length > 0;
+
+		const observe = () => {
+			if (typeof ResizeObserver === "undefined") return;
+			let previousWidth = Math.max(280, Math.round(host.getBoundingClientRect().width));
+			chartObserver = new ResizeObserver(() => {
+				const width = Math.max(280, Math.round(host.getBoundingClientRect().width));
+				if (width === previousWidth) return;
+				previousWidth = width;
+				paintChart(host);
+			});
 			chartObserver.observe(host);
+		};
+
+		if (!canAnimate) {
+			displayedChart = target;
+			chartYDomain = null;
+			requestAnimationFrame(() => paintChart(host));
+			observe();
+			return;
 		}
+
+		const from = displayedChart.map((point) => ({ date: point.date, percent: point.percent }));
+		chartYDomain = chartDomain([...from, ...target]);
+		const startedAt = performance.now();
+		const tick = (now: number) => {
+			const elapsed = Math.min(1, (now - startedAt) / GRADE_TWEEN_MS);
+			const eased = easeGrade(elapsed);
+			displayedChart = interpolateChart(from, target, eased);
+			paintChart(host);
+			if (elapsed < 1) chartAnimationFrame = requestAnimationFrame(tick);
+			else {
+				chartAnimationFrame = null;
+				displayedChart = target;
+				paintChart(host);
+			}
+		};
+		chartAnimationFrame = requestAnimationFrame(tick);
+		observe();
 	}
 
 	function render(): void {
@@ -326,6 +403,7 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 		const trendNote = Math.abs(trendDifference) >= 0.05
 			? `<div class="-mt-2 text-sm"><p class="text-red-500">Trend differs from StudentVUE · calculated ${escapeHtml(formatGrade(result.percent))}, StudentVUE reports ${escapeHtml(formatGrade(officialPercent))}</p><p class="mt-0.5 text-muted-foreground">Hidden, dropped, or otherwise unavailable gradebook data can cause a difference.</p></div>`
 			: "";
+		const impacts = assignmentImpacts(course, list);
 		const now = Date.now();
 		const visible = list
 			.map((assignment, index) => ({ assignment, index }))
@@ -381,6 +459,7 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 												tab,
 												hypothetical,
 												weightLabels,
+												impacts.get(assignment.id) ?? null,
 											),
 										)
 										.join("")
@@ -407,13 +486,20 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 		const list = assignments();
 		const result = calculateCourse(course, list);
 		setHeaderGrade(result.percent, true);
-		drawChart(list);
+		drawChart(list, true);
 
+		const impacts = assignmentImpacts(course, list);
 		for (const [index, assignment] of list.entries()) {
 			const extra = isExtraCredit(assignment);
 			const percent = assignmentPercent(assignment);
+			const shown = impactDisplay(impacts.get(assignment.id) ?? null);
+			const impactEl = root.querySelector(`[data-impact="${index}"]`);
+			if (impactEl) {
+				impactEl.className = shown.className;
+				impactEl.textContent = shown.text;
+			}
 			const barPercent = percent == null ? null : Math.min(Math.max(percent, 0), 100);
-			const fill = "bg-primary";
+			const fill = progressFillClass(percent, extra);
 			const track = "bg-muted";
 			const bar = root.querySelector(`[data-progress="${index}"]`);
 			if (bar instanceof HTMLElement) {
@@ -433,9 +519,7 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 		const parsed = parseScoreInput(raw);
 		if (parsed === undefined) return;
 		if (field === "earned") {
-			assignment.pointsEarned = parsed == null || isExtraCredit(assignment)
-				? parsed
-				: Math.min(Math.max(parsed, 0), assignment.pointsPossible ?? parsed);
+			assignment.pointsEarned = parsed == null ? parsed : Math.max(0, parsed);
 			assignment.ungraded = parsed == null;
 		} else {
 			assignment.pointsPossible = parsed;
@@ -449,9 +533,6 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 		const current = field === "earned" ? assignment.pointsEarned : assignment.pointsPossible;
 		let next = Math.max(0, Number(((current ?? 0) + delta).toFixed(10)));
 		if (field === "earned") {
-			if (!isExtraCredit(assignment) && assignment.pointsPossible != null) {
-				next = Math.min(next, assignment.pointsPossible);
-			}
 			assignment.pointsEarned = next;
 			assignment.ungraded = false;
 		} else {
@@ -541,5 +622,6 @@ export function mountCourseDetail(root: Element, data: Bootstrap): () => void {
 	return () => {
 		chartObserver?.disconnect();
 		if (gradeAnimationFrame != null) cancelAnimationFrame(gradeAnimationFrame);
+		if (chartAnimationFrame != null) cancelAnimationFrame(chartAnimationFrame);
 	};
 }

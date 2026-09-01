@@ -153,6 +153,49 @@ export function calculateCourse(
 	};
 }
 
+export interface AssignmentImpact {
+	value: number;
+	first: boolean;
+}
+
+function assignmentTime(assignment: DraftAssignment, fallback: number): number {
+	const parsed = Date.parse(assignment.date);
+	return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/** Overall grade after this assignment if it was first, otherwise the change from earlier work. */
+export function assignmentImpacts(
+	course: Pick<Course, "categories"> & Partial<Pick<Course, "assignments">>,
+	assignments: DraftAssignment[],
+): Map<string, AssignmentImpact> {
+	const impacts = new Map<string, AssignmentImpact>();
+	const graded = assignments
+		.map((assignment, index) => ({ assignment, index }))
+		.filter(({ assignment }) => countsTowardGrade(assignment))
+		.sort((a, b) => {
+			const delta = assignmentTime(a.assignment, a.index) - assignmentTime(b.assignment, b.index);
+			return delta || a.index - b.index;
+		});
+
+	const included = new Set<string>();
+	let previous: number | null = null;
+	for (const { assignment } of graded) {
+		included.add(assignment.id);
+		const snapshot = assignments.map((item) =>
+			included.has(item.id) ? item : { ...item, dropped: true },
+		);
+		const percent = calculateCourse(course, snapshot).percent;
+		if (percent == null) continue;
+		impacts.set(assignment.id, {
+			value: previous == null ? percent : percent - previous,
+			first: previous == null,
+		});
+		previous = percent;
+	}
+
+	return impacts;
+}
+
 export function scoreNeeded(
 	course: Pick<Course, "categories">,
 	assignments: DraftAssignment[],

@@ -4,6 +4,7 @@ import {
 	isExtraCredit,
 	isSummaryCategory,
 	toDraft,
+	type AssignmentImpact,
 	type DraftAssignment,
 } from "./calculate";
 
@@ -62,12 +63,36 @@ export function displayPercent(course: Course): number | null {
 	return calculateCourse(course, toDraft(course.assignments)).percent;
 }
 
-export function progressFillClass(percent: number | null, extraCredit = false): string {
+export function letterFromPercent(percent: number | null): string | null {
+	if (percent == null || Number.isNaN(percent)) return null;
+	if (percent >= 90) return "A";
+	if (percent >= 80) return "B";
+	if (percent >= 70) return "C";
+	if (percent >= 60) return "D";
+	return "F";
+}
+
+export function letterBand(letter: string | null | undefined): "A" | "B" | "C" | "D" | "F" | null {
+	const mark = letter?.trim().toUpperCase();
+	if (!mark || mark === "N/A") return null;
+	const band = mark.charAt(0);
+	if (band === "A" || band === "P") return "A";
+	if (band === "B") return "B";
+	if (band === "C") return "C";
+	if (band === "D") return "D";
+	if (band === "F" || band === "E") return "F";
+	return null;
+}
+
+export function progressFillClass(percent: number | null, extraCredit = false, letter?: string | null): string {
 	if (extraCredit) return "bg-indigo-700 dark:bg-indigo-600";
-	if (percent == null || Number.isNaN(percent)) return "bg-neutral-500";
-	if (percent >= 90) return "bg-emerald-700 dark:bg-emerald-600";
-	if (percent >= 80) return "bg-amber-600 dark:bg-amber-500";
-	return "bg-rose-700 dark:bg-rose-600";
+	const band = letterBand(letter ?? letterFromPercent(percent));
+	if (band === "A") return "bg-emerald-700 dark:bg-emerald-600";
+	if (band === "B") return "bg-amber-600 dark:bg-amber-500";
+	if (band === "C") return "bg-orange-500 dark:bg-orange-400";
+	if (band === "D") return "bg-orange-800 dark:bg-orange-600";
+	if (band === "F") return "bg-rose-700 dark:bg-rose-600";
+	return "bg-neutral-500";
 }
 
 export function progressTranslate(percent: number | null): string {
@@ -142,29 +167,31 @@ function chronologicalGraded(
 		.map(({ assignment }) => assignment);
 }
 
-/** Overall grade change when this assignment was added, relative to earlier work only. */
-export function assignmentImpacts(
-	course: Pick<Course, "categories">,
-	assignments: DraftAssignment[],
-): Map<string, number> {
-	const now = Date.now();
-	const graded = chronologicalGraded(assignments, now);
-	const impacts = new Map<string, number>();
-	const included = new Set<string>();
-	let previous: number | null = null;
+export { assignmentImpacts, type AssignmentImpact } from "./calculate";
 
-	for (const assignment of graded) {
-		included.add(assignment.id);
-		const snapshot = assignments.map((item) =>
-			included.has(item.id) ? item : { ...item, dropped: true },
-		);
-		const percent = calculateCourse(course, snapshot).percent;
-		if (percent == null) continue;
-		impacts.set(assignment.id, previous == null ? percent : percent - previous);
-		previous = percent;
+export function impactDisplay(impact: AssignmentImpact | null): { text: string; className: string } {
+	if (impact == null || Number.isNaN(impact.value)) {
+		return { text: "", className: "hidden" };
 	}
-
-	return impacts;
+	const rounded = Number(impact.value.toFixed(2));
+	const text = impact.first
+		? `${Number(rounded.toFixed(2))}%`
+		: `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}%`;
+	const tone = impact.first
+		? rounded >= 90
+			? "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+			: rounded >= 80
+				? "border-transparent bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
+				: "border-transparent bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+		: rounded > 0
+			? "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100"
+			: rounded < 0
+				? "border-transparent bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-100"
+				: "border-transparent bg-secondary text-secondary-foreground";
+	return {
+		text,
+		className: `inline-flex shrink-0 select-none items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums ${tone}`,
+	};
 }
 
 export function gradeHistory(

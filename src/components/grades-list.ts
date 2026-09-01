@@ -342,7 +342,7 @@ function renderList(
 						const percent = course.officialMark.trim().toUpperCase() === "N/A" ? null : displayPercent(course);
 						const missing = course.assignments.filter((assignment) => assignment.notes.trim().toLowerCase() === "missing").length;
 						const progress = Math.min(Math.max(percent ?? 0, 0), 100);
-						const progressColor = progressFillClass(percent);
+						const progressColor = progressFillClass(percent, false, officialLetter(course));
 						const progressBar = courseProgressBar(progress, progressColor);
 						return `<li><div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
 							<a class="flex min-h-[4.5rem] items-center gap-3 p-3.5 text-foreground no-underline outline-none transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-24 sm:gap-5 sm:p-5" href="/grades/${index}${periodQuery}">
