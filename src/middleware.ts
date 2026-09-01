@@ -1,20 +1,32 @@
 import { defineMiddleware } from "astro:middleware";
 import { clearAuth } from "./lib/auth";
 
-function wispConnectSrc(): string[] {
-	const raw = (import.meta.env.PUBLIC_WISP_URL_2 ?? "").trim();
-	if (!raw) return [];
-	try {
-		return [new URL(raw).origin];
-	} catch {
-		return [];
-	}
+function isRetiredAppPath(pathname: string): boolean {
+	return (
+		pathname === "/login" ||
+		pathname.startsWith("/login/") ||
+		pathname === "/signup" ||
+		pathname.startsWith("/signup/") ||
+		pathname === "/grades" ||
+		pathname.startsWith("/grades/") ||
+		pathname === "/documents" ||
+		pathname.startsWith("/documents/") ||
+		pathname === "/attendance" ||
+		pathname.startsWith("/attendance/") ||
+		pathname === "/mail" ||
+		pathname.startsWith("/mail/") ||
+		pathname === "/student-info" ||
+		pathname.startsWith("/student-info/")
+	);
 }
 
-export const onRequest = defineMiddleware(async ({ cookies }, next) => {
+export const onRequest = defineMiddleware(async ({ cookies, url, redirect }, next) => {
 	clearAuth(cookies);
+	if (isRetiredAppPath(url.pathname)) {
+		return redirect("/", 302);
+	}
+
 	const response = await next();
-	const connect = ["'self'", ...wispConnectSrc()].join(" ");
 	response.headers.set(
 		"Content-Security-Policy",
 		[
@@ -22,13 +34,11 @@ export const onRequest = defineMiddleware(async ({ cookies }, next) => {
 			"base-uri 'self'",
 			"object-src 'none'",
 			"frame-ancestors 'none'",
-			"script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+			"script-src 'self' 'unsafe-inline'",
 			"style-src 'self' 'unsafe-inline'",
-			"img-src 'self' data: blob:",
+			"img-src 'self' data:",
 			"font-src 'self' data:",
-			`connect-src ${connect}`,
-			"worker-src 'self' blob:",
-			"frame-src 'self' blob: data:",
+			"connect-src 'self'",
 		].join("; "),
 	);
 	response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

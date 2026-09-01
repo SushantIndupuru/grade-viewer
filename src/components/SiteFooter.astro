@@ -1,43 +1,16 @@
 ---
 import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
 import ThemeToggle from './ThemeToggle.astro';
-
-const pathname = Astro.url.pathname;
-const compact = pathname === '/privacy' || pathname === '/signup' || pathname === '/login';
-const signedInPage =
-	pathname === '/grades' ||
-	pathname.startsWith('/grades/') ||
-	pathname === '/documents' ||
-	pathname === '/attendance' ||
-	pathname === '/mail';
 ---
 
 <footer class="mt-auto border-t border-border">
-	<div class={`mx-auto flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 text-xs text-muted-foreground ${pathname === '/' ? 'max-w-5xl' : 'max-w-3xl'}`}>
-		{compact ? (
-			<p>Grade Viewer talks to StudentVUE from your browser.</p>
-		) : (
-			<p>
-				Your browser talks to StudentVUE. We don’t keep a copy of your password or grades.
-			</p>
-		)}
+	<div class="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 text-xs text-muted-foreground">
+		<p>Grade Viewer is no longer available.</p>
 		<nav class="flex items-center gap-3">
 			<ThemeToggle />
-			<a class="text-inherit underline" href="/signup" data-signup-link hidden={signedInPage}>Sign up</a>
 			<a class="text-inherit underline" href="/privacy">Privacy</a>
 			<a class="text-inherit underline" href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
-			<a class="text-inherit underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Proudly open source</a>
+			<a class="text-inherit underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source</a>
 		</nav>
 	</div>
 </footer>
-
-<script>
-	import { getSession } from '../lib/session';
-
-	const link = document.querySelector('[data-signup-link]');
-	if (link) {
-		const session = await getSession();
-		if (session) link.setAttribute('hidden', '');
-		else link.removeAttribute('hidden');
-	}
-</script>

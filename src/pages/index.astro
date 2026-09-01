@@ -1,21 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import HomeCarousel from '../components/HomeCarousel.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
-import { SOURCE_URL } from '../lib/config';
-
-if (Astro.url.searchParams.has('error')) {
-	const params = new URLSearchParams();
-	const error = Astro.url.searchParams.get('error');
-	if (error) params.set('error', error);
-	const query = params.toString();
-	return Astro.redirect(query ? `/login?${query}` : '/login');
-}
+import { CONTACT_EMAIL, SOURCE_URL } from '../lib/config';
 ---
 
-<Layout title="Grade Viewer" description="View StudentVUE grades, mail, attendance, and documents in your browser. Encrypted login stays on this device. Open source.">
+<Layout
+	title="Grade Viewer is shutting down"
+	description="Grade Viewer is no longer available. This independent project has been discontinued."
+>
 	<header class="border-b border-border">
-		<div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
+		<div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
 			<p class="font-medium">Grade Viewer</p>
 			<div class="flex items-center gap-2">
 				<ThemeToggle />
@@ -30,130 +24,110 @@ if (Astro.url.searchParams.has('error')) {
 					</svg>
 					Source
 				</a>
-				<a
-					class="inline-flex h-8 items-center rounded border border-border px-2.5 text-sm text-foreground no-underline hover:bg-muted"
-					href="/login"
-					data-signed-out
-				>
-					Sign in
-				</a>
-				<a
-					class="inline-flex h-8 items-center rounded bg-foreground px-2.5 text-sm text-background no-underline hover:opacity-90"
-					href="/grades"
-					data-signed-in
-					hidden
-				>
-					Open grades
-				</a>
 			</div>
 		</div>
 	</header>
 
-	<main class="mx-auto w-full max-w-5xl flex-1 px-4 pt-12 pb-20">
-		<section class="max-w-2xl">
-			<p class="text-sm text-muted-foreground">
-				Open source · encrypted on this device · no password or gradebook on our servers
-			</p>
-			<h1 class="mt-3 text-4xl font-medium tracking-tight sm:text-5xl">See your grades. Try what-if scores.</h1>
-			<p class="mt-4 text-base leading-relaxed text-muted-foreground">
-				A StudentVUE viewer that runs in your browser. See course grades and assignment impact, then
-				try what-if scores that never leave this device and are never sent back to the district. Mail,
-				attendance, and documents from StudentVUE are here too.
-			</p>
-			<p class="mt-8 flex flex-wrap items-center gap-2">
-				<a
-					class="inline-flex h-10 items-center rounded bg-foreground px-4 text-sm text-background no-underline hover:opacity-90"
-					href="/login"
-					data-signed-out
-				>
-					Sign in
-				</a>
-				<a
-					class="inline-flex h-10 items-center rounded bg-foreground px-4 text-sm text-background no-underline hover:opacity-90"
-					href="/grades"
-					data-signed-in
-					hidden
-				>
-					Open grades
-				</a>
-				<a
-					class="inline-flex h-10 items-center rounded border border-border px-4 text-sm text-foreground no-underline hover:bg-muted"
-					href="/signup"
-					data-signed-out
-				>
-					Need a password?
-				</a>
+	<main class="mx-auto w-full max-w-3xl flex-1 px-4 pt-12 pb-20">
+		<p class="text-sm text-muted-foreground">August 31, 2026</p>
+		<h1 class="mt-3 text-4xl font-medium tracking-tight sm:text-5xl">Grade Viewer is shutting down</h1>
+		<p class="mt-4 text-base leading-relaxed text-muted-foreground">
+			Sign-in is off. This site no longer connects to any school district system, and it no longer
+			collects a login. If this browser had a saved sign-in, it is being deleted now.
+		</p>
+
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">What this was</h2>
+			<p>
+				Grade Viewer was a small, independent, open-source website. It ran in your browser and let
+				you look at grades, mail, attendance, and documents you could already see in your school’s
+				official portal, plus local what-if scores that never left this device. It was not a district
+				product. It was not for profit. It was never affiliated with, endorsed by, or approved by
+				Edupoint Educational Systems or any school.
 			</p>
 		</section>
 
-		<section class="mt-12" aria-labelledby="trust-heading">
-			<h2 id="trust-heading" class="text-lg font-medium">Your login stays on this device</h2>
-			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-				We don’t keep a password or gradebook. A hashed usage ID is the only student-related thing we
-				store. You can verify that in the&nbsp;
-				<a class="underline" href="/privacy">privacy note</a>
-				&nbsp;and the&nbsp;
-				<a class="underline" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">source</a>.
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">The letter</h2>
+			<p>
+				On August 31, 2026, Edupoint Educational Systems emailed
+				{' '}<a class="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+				Edupoint makes the student information system many schools use, and it owns the federally
+				registered EDUPOINT, SYNERGY, and STUDENTVUE trademarks. They asked us to stop, and to
+				confirm in writing by September 8, 2026. We are complying.
 			</p>
+			<p>They raised two issues.</p>
+		</section>
 
-			<ul class="mt-5 grid gap-3 sm:grid-cols-3">
-				<li class="rounded-lg border border-border p-4">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						<rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-						<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-					</svg>
-					<h3 class="mt-3 text-sm font-medium">Encrypted on this device</h3>
-					<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-						After you sign in, this browser keeps an encrypted copy of your StudentVUE login. The
-						key never leaves this device. Sign out, and the saved login is deleted.
-					</p>
-				</li>
-				<li class="rounded-lg border border-border p-4">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
-						<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
-						<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
-						<line x1="2" x2="22" y1="2" y2="22"></line>
-					</svg>
-					<h3 class="mt-3 text-sm font-medium">No student database</h3>
-					<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-						No StudentVUE accounts, no gradebook copies, no password database. Your browser talks to
-						StudentVUE over HTTPS. We only store a hashed usage ID so we can count unique sign-ins.
-						What-if scores are never written back.
-					</p>
-				</li>
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">1. Their trademarks</h2>
+			<p>
+				They agreed the product name “Grade Viewer” does not include their marks, and that the
+				project said it was not affiliated with them. Their concern was narrower: the site described
+				itself <em>as</em> a viewer for their product. The homepage headline, body copy, and search
+				description used their mark as the main way to explain what this was. They say that can make
+				people think Grade Viewer is associated with, endorsed by, or approved by Edupoint.
+			</p>
+			<p>
+				We are removing that marketing use: it is gone from this homepage, from page metadata, and
+				from the other public pages on this site.
+			</p>
+		</section>
+
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">2. Connecting to their systems</h2>
+			<p>
+				Grade Viewer asked you for the same username and password you already use at school, then
+				your <em>browser</em> used those to load records from Edupoint’s web services. We did not
+				keep a password or gradebook on our servers. After sign-in, this device kept an encrypted
+				copy of the login; signing out deleted it.
+			</p>
+			<p>
+				Edupoint’s position is that those measures do not matter for permission. They say they never
+				authorized this application to connect, that a student cannot grant that permission on
+				Edupoint’s behalf, and that the access itself is unauthorized. They cited student-privacy
+				and computer-access laws as concerns, including FERPA, COPPA, the Computer Fraud and Abuse
+				Act, and state unfair-trade-practice laws.
+			</p>
+			<p>
+				We are not going to litigate that on this page. We are stopping the connection.
+			</p>
+		</section>
+
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">What they asked us to do</h2>
+			<ul class="list-disc space-y-2 pl-5">
+				<li>Stop using their marks in the app name, domain, repository, listings, metadata, and marketing.</li>
+				<li>Stop all access to and use of their web services and systems.</li>
 				<li>
-					<a
-						class="flex h-full flex-col rounded-lg border border-border p-4 text-foreground no-underline hover:bg-muted"
-						href={SOURCE_URL}
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-							<path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.58 9.58 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-						</svg>
-						<h3 class="mt-3 text-sm font-medium">Proudly open source</h3>
-						<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-							We’ve got nothing to hide. Click here to read how sign-in, the encrypted StudentVUE
-							connection, and local what-if scores work.
-						</p>
-					</a>
+					Destroy data belonging to others that we obtained by building or running this app,
+					including stored logins and usage identifiers derived from them.
 				</li>
 			</ul>
 		</section>
 
-		<HomeCarousel />
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">What we are doing</h2>
+			<ul class="list-disc space-y-2 pl-5">
+				<li>Sign-in, grades, mail, attendance, and documents are turned off.</li>
+				<li>This site will not contact Edupoint systems.</li>
+				<li>Any encrypted login saved in <em>this</em> browser is deleted when you open this page.</li>
+				<li>We will delete hashed usage IDs that were stored only to count unique sign-ins.</li>
+				<li>We never had a server-side copy of passwords or gradebooks to delete.</li>
+			</ul>
+			<p>
+				Use your school’s official portal for grades and school mail. That is the supported way to
+				see the same information.
+			</p>
+		</section>
+
+		<section class="mt-10 space-y-4 text-sm leading-relaxed text-muted-foreground">
+			<h2 class="text-lg font-medium text-foreground">Questions</h2>
+			<p>
+				Email
+				{' '}<a class="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+				The source remains publicly available.
+			</p>
+		</section>
 	</main>
 </Layout>
-
-<script>
-	import { getSession } from '../lib/session';
-
-	const session = await getSession();
-	const signedOut = document.querySelectorAll('[data-signed-out]');
-	const signedIn = document.querySelectorAll('[data-signed-in]');
-	if (session) {
-		for (const node of signedOut) node.setAttribute('hidden', '');
-		for (const node of signedIn) node.removeAttribute('hidden');
-	}
-</script>

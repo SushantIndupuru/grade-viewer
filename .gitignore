@@ -16,9 +16,8 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
-# local captures (may contain credentials or student data)
+# leftover local captures (may contain credentials or student data)
 flows*
-studentvue-dumps/
 
 # OS / editors
 .DS_Store

@@ -10,7 +10,7 @@ interface Props {
 
 const SITE_NAME = 'Grade Viewer';
 const site = Astro.site ?? new URL('https://gradeviewer.org');
-const { title = SITE_NAME, description = 'View StudentVUE grades, assignment impact, and local what-if scores.' } = Astro.props;
+const { title = SITE_NAME, description = 'Grade Viewer is no longer available.' } = Astro.props;
 const canonical = new URL(Astro.url.pathname, site);
 const themeCookie = Astro.cookies.get(THEME_COOKIE)?.value;
 const theme = isTheme(themeCookie) ? themeCookie : null;
@@ -47,24 +47,15 @@ const theme = isTheme(themeCookie) ? themeCookie : null;
 		<title>{title}</title>
 	</head>
 	<body class="flex min-h-screen flex-col bg-background text-foreground">
-		{Astro.slots.has('sidebar') ? (
-			<div class="min-h-0 flex-1 md:flex">
-				<slot name="sidebar" />
-				<div class="flex min-h-0 min-w-0 flex-1 flex-col">
-					<slot />
-				</div>
-			</div>
-		) : (
-			<>
-				<slot />
-				<SiteFooter />
-			</>
-		)}
+		<slot />
+		<SiteFooter />
 	</body>
 </html>
 
 <script>
 	import { bindThemeControls } from '../lib/theme';
+	import { wipeDeviceData } from '../lib/wipe-device';
 
 	bindThemeControls();
+	void wipeDeviceData();
 </script>

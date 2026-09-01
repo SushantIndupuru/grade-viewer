@@ -6,11 +6,3 @@ const COOKIE = "gv_auth";
 export function clearAuth(cookies: AstroCookies): void {
 	cookies.delete(COOKIE, { path: "/" });
 }
-
-export async function readJsonBody(request: Request): Promise<unknown> {
-	try {
-		return await request.json();
-	} catch {
-		return null;
-	}
-}
